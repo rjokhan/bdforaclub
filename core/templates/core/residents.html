@@ -1,0 +1,69 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Резиденты клуба</title>
+    <link rel="stylesheet" href="{% static 'core/base.css' %}">
+    <link rel="stylesheet" href="{% static 'core/residents.css' %}">
+    <script src="{% static 'core/residents.js' %}" defer></script>
+</head>
+<body>
+    <div class="vertical-waves">
+        <div class="wave"></div>
+        <div class="wave"></div>
+        <div class="wave"></div>
+    </div>
+
+    <h1>Список резидентов</h1>
+    <button onclick="openPopup()">Добавить резидента</button>
+
+<div id="color-legend"></div>
+    <table id="residentsTable">
+        <thead>
+        <tr>
+            <th style="width: 50px;">№</th>
+            <th>ФИО</th>
+            <th>Контакт</th>
+            <th>Активно ивентов</th>
+            <th>Завершено ивентов</th>
+            <th>ВСЕГО</th>
+            <th style="background: none;"></th> <!-- убираем фон у последней колонки -->
+        </tr>
+</thead>
+
+        <tbody></tbody>
+    </table>
+    
+
+
+    <!-- Попап -->
+<div id="popup-overlay" class="popup-overlay hidden">
+  <div class="popup-add">
+    <h2>Новый резидент</h2>
+    <div class="input-group">
+      <input type="text" id="fullNameInput" placeholder="ФИО">
+      <input type="tel" id="phoneInput" placeholder="+998 __ ___ __ __">
+    </div>
+    <div class="popup-buttons">
+      <button onclick="addResident()">Сохранить</button>
+      <button onclick="closeFormPopup()" class="cancel">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+
+
+
+<div id="eventsPopup" class="popup hidden">
+  <div class="popup-content">
+    <span class="close-btn" onclick="closePopup()">×</span>
+    <h2>Список ивентов резидента</h2>
+    <div id="eventsList" class="events-scroll"></div>
+  </div>
+</div>
+
+
+
+</body>
+</html>
