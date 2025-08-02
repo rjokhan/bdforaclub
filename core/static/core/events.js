@@ -250,3 +250,12 @@ function getStatusColor(code) {
 }
 
 document.addEventListener("DOMContentLoaded", fetchEvents);
+
+
+function openEventPopup() {
+    document.getElementById('event-popup-overlay').style.display = 'flex';
+}
+
+function closeEventPopup() {
+    document.getElementById('event-popup-overlay').style.display = 'none';
+}
