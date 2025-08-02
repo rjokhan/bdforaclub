@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-zrxm(n+n6t+vif6e%ono0l3fcvavcvp03-e4ceo7d1cxoq6ucw
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['89.39.95.53', 'localhost', '127.0.0.1', 'crm.ayolclub.uz', 'www.crm.ayolclub.uz']
 
 
 # Application definition
@@ -127,6 +127,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 import os
 
 TEMPLATES[0]['DIRS'] = [os.path.join(BASE_DIR, 'core', 'templates')]
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = [BASE_DIR / 'core' / 'static']
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')   # для собранной статики
