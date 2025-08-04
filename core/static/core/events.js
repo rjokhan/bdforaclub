@@ -278,7 +278,10 @@ function addEvent() {
 }
 
 function searchResidents() {
-    const query = document.getElementById("resident-search-input").value.trim().toLowerCase();
+    const query = document.getElementById("resident-search-input").value
+        .trim()
+        .toLowerCase()
+        .normalize();
 
     fetch("/api/residents/")
         .then(res => res.json())
@@ -290,12 +293,11 @@ function searchResidents() {
                 .map(el => parseInt(el.getAttribute("data-id")));
 
             const filtered = data.filter(r => {
+                const fullName = r.full_name ? r.full_name.toLowerCase().normalize() : "";
+                const phone = r.phone || "";
                 return (
                     !selected.includes(r.id) &&
-                    (
-                        (r.full_name && r.full_name.toLowerCase().includes(query)) ||
-                        (r.phone && r.phone.includes(query))
-                    )
+                    (fullName.includes(query) || phone.includes(query))
                 );
             });
 
@@ -305,15 +307,19 @@ function searchResidents() {
             }
 
             filtered.forEach(resident => {
+                const safeName = resident.full_name?.replace(/'/g, "\\'") || "—";
+                const safePhone = resident.phone?.replace(/'/g, "\\'") || "—";
+
                 const div = document.createElement("div");
                 div.innerHTML = `
-                    ${resident.full_name || "—"} (${resident.phone || "—"})
-                    <button onclick="selectResident(${resident.id}, '${resident.full_name}', '${resident.phone}')">Добавить</button>
+                    ${safeName} (${safePhone})
+                    <button onclick="selectResident(${resident.id}, '${safeName}', '${safePhone}')">Добавить</button>
                 `;
                 resultsContainer.appendChild(div);
             });
         });
 }
+
 
 function selectResident(id, full_name, phone) {
     const container = document.getElementById("selected-residents-list");
