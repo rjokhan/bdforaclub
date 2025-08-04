@@ -126,14 +126,13 @@ function addResidentToList(resident) {
     selectedResidents.push({ ...resident, status: null });
     renderSelectedResidents();
 }
-
 function renderSelectedResidents() {
     const container = document.getElementById("selected-residents-list");
     container.innerHTML = "";
 
     selectedResidents.forEach((resident, index) => {
         const wrapper = document.createElement("div");
-        wrapper.setAttribute("data-id", resident.id); // ← важно!
+        wrapper.setAttribute("data-id", resident.id);  // ✅ ОБЯЗАТЕЛЬНО
         wrapper.style.marginTop = "10px";
 
         const label = document.createElement("span");
@@ -158,6 +157,7 @@ function renderSelectedResidents() {
 
     checkAllStatusesSelected();
 }
+
 
 function checkAllStatusesSelected() {
     const allSelected = selectedResidents.every(r => r.status);
