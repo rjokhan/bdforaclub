@@ -276,7 +276,6 @@ function addEvent() {
     })
     .catch(err => alert(err.message));
 }
-
 function searchResidents() {
     const query = document.getElementById("resident-search-input").value
         .trim()
@@ -294,7 +293,7 @@ function searchResidents() {
 
             const filtered = data.filter(r => {
                 const fullName = r.full_name ? r.full_name.toLowerCase().normalize() : "";
-                const phone = r.phone || "";
+                const phone = String(r.phone || "");
                 return (
                     !selected.includes(r.id) &&
                     (fullName.includes(query) || phone.includes(query))
@@ -319,6 +318,7 @@ function searchResidents() {
             });
         });
 }
+
 
 
 
