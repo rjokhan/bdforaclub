@@ -163,6 +163,7 @@ function checkAllStatusesSelected() {
 
 function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
+
     const promises = selectedResidents.map(r => {
         const statusCode = mapStatusToCode(r.status);
         const payment =
@@ -171,7 +172,9 @@ function savePurchases() {
 
         return fetch("/api/participants/", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json"
+            },
             body: JSON.stringify({
                 resident: r.id,
                 event: selectedEventId,
@@ -187,13 +190,29 @@ function savePurchases() {
 
     Promise.all(promises)
         .then(responses => {
-            if (responses.some(res => !res.ok)) throw new Error("Ошибка при сохранении");
+            if (responses.some(res => !res.ok)) {
+                console.error("Один из ответов:", responses);
+                throw new Error("Ошибка при сохранении");
+            }
             alert("Покупки успешно добавлены!");
             closePurchasePopup();
             if (typeof fetchEvents === "function") fetchEvents();
         })
-        .catch(() => alert("Ошибка при сохранении покупок"));
+        .catch(err => {
+            console.error("Ошибка при сохранении:", err);
+            alert("Ошибка при сохранении покупок");
+        });
 }
+
+function mapStatusToCode(statusText) {
+    switch (statusText) {
+        case "оплачено": return "paid";
+        case "оплачено частично": return "partial";
+        case "забронировано": return "reserved";
+        default: return "reserved";
+    }
+}
+
 
 function mapStatusToCode(statusText) {
     switch (statusText) {
