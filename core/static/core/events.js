@@ -62,7 +62,6 @@ function renderEvents(events, participations) {
 
 function deleteEvent(id) {
     if (!confirm("Удалить событие?")) return;
-
     fetch(`${EVENTS_API}${id}/`, { method: "DELETE" })
         .then(res => {
             if (!res.ok) throw new Error("Ошибка при удалении");
@@ -72,9 +71,7 @@ function deleteEvent(id) {
 }
 
 function toggleStatus(id, isFinished) {
-    const confirmMsg = isFinished
-        ? "Желаете вернуть ивент в статус активно?"
-        : "Завершить ивент?";
+    const confirmMsg = isFinished ? "Желаете вернуть ивент в статус активно?" : "Завершить ивент?";
     if (!confirm(confirmMsg)) return;
 
     fetch(`${EVENTS_API}${id}/`, {
@@ -132,7 +129,6 @@ function openEventPopupWithParticipants(eventId) {
                     </div>
                     <div><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
                 `;
-
                 container.appendChild(div);
             });
 
@@ -241,41 +237,45 @@ function getStatusColor(code) {
     return "red";
 }
 
-document.addEventListener("DOMContentLoaded", fetchEvents);
-
 function openEventPopup() {
-    document.getElementById('event-popup-overlay').style.display = 'flex';
+    document.getElementById("event-popup-overlay").style.display = "flex";
 }
 function closeEventPopup() {
-    document.getElementById('event-popup-overlay').style.display = 'none';
+    document.getElementById("event-popup-overlay").style.display = "none";
 }
 
-function addEvent() {
-    const title = document.getElementById("eventNameInput").value;
-    const date = document.getElementById("eventDateInput").value;
-    const seats = parseInt(document.getElementById("eventSeatsInput").value);
-    const price = parseFloat(document.getElementById("eventPriceInput").value);
+function openPurchasePopup() {
+    document.getElementById("purchase-popup-overlay").style.display = "flex";
 
-    if (!title || !date || isNaN(seats) || isNaN(price)) {
-        alert("Пожалуйста, заполните все поля корректно.");
-        return;
-    }
+    fetch("/api/events/")
+        .then(res => res.json())
+        .then(events => {
+            const container = document.getElementById("event-list-container");
+            container.innerHTML = "";
 
-    fetch("/api/events/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, date, seats, price })
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Ошибка при создании события");
-        return res.json();
-    })
-    .then(() => {
-        closeEventPopup();
-        fetchEvents();
-    })
-    .catch(err => alert(err.message));
+            events.forEach(event => {
+                const div = document.createElement("div");
+                div.textContent = `${event.title} (${event.date})`;
+                div.style.cursor = "pointer";
+                div.onclick = () => {
+                    window.selectedEventId = event.id;
+                    document.getElementById("purchase-step-event").style.display = "none";
+                    document.getElementById("purchase-step-residents").style.display = "block";
+                };
+                container.appendChild(div);
+            });
+        });
 }
+
+function closePurchasePopup() {
+    document.getElementById("purchase-popup-overlay").style.display = "none";
+    document.getElementById("purchase-step-event").style.display = "block";
+    document.getElementById("purchase-step-residents").style.display = "none";
+    document.getElementById("selected-residents-list").innerHTML = "";
+    document.getElementById("resident-search-input").value = "";
+    document.getElementById("resident-search-results").innerHTML = "";
+}
+
 function searchResidents() {
     const query = document.getElementById("resident-search-input").value
         .trim()
@@ -319,9 +319,6 @@ function searchResidents() {
         });
 }
 
-
-
-
 function selectResident(id, full_name, phone) {
     const container = document.getElementById("selected-residents-list");
 
@@ -339,3 +336,36 @@ function selectResident(id, full_name, phone) {
     container.appendChild(div);
     document.getElementById("save-purchase-button").style.display = "block";
 }
+
+function savePurchases() {
+    const selectedResidents = Array.from(document.querySelectorAll("#selected-residents-list [data-id]")).map(div => {
+        return {
+            resident: parseInt(div.getAttribute("data-id")),
+            status: div.querySelector("select").value
+        };
+    });
+
+    const selectedEventId = window.selectedEventId;
+    if (!selectedEventId) {
+        alert("Сначала выберите ивент");
+        return;
+    }
+
+    const promises = selectedResidents.map(r =>
+        fetch("/api/participants/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ event: selectedEventId, resident: r.resident, status: r.status })
+        })
+    );
+
+    Promise.all(promises)
+        .then(responses => {
+            if (responses.some(res => !res.ok)) throw new Error("Ошибка при сохранении");
+            closePurchasePopup();
+            fetchEvents();
+        })
+        .catch(err => alert(err.message));
+}
+
+document.addEventListener("DOMContentLoaded", fetchEvents);
