@@ -374,6 +374,3 @@ tr:not(:last-child) {
     background-color: #a1002d;
 }
 
-.hidden {
-  display: none !important;
-}
