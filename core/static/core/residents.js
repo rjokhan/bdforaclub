@@ -154,3 +154,38 @@ function openPopupWithEvents(residentId) {
 function closePopup() {
     document.getElementById("eventsPopup").classList.add("hidden");
 }
+
+
+function addEvent() {
+    const name = document.getElementById("eventNameInput").value.trim();
+    const date = document.getElementById("eventDateInput").value;
+    const seats = document.getElementById("eventSeatsInput").value;
+    const price = document.getElementById("eventPriceInput").value;
+
+    if (!name || !date || !seats || !price) {
+        alert("Пожалуйста, заполните все поля");
+        return;
+    }
+
+    fetch("/api/events/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            name,
+            date,
+            total_seats: parseInt(seats),
+            price: parseFloat(price)
+        })
+    })
+        .then(res => {
+            if (!res.ok) throw new Error("Ошибка при создании события");
+            return res.json();
+        })
+        .then(() => {
+            closeEventPopup();
+            loadEvents(); // или fetchEvents(), если есть
+        })
+        .catch(err => {
+            alert(err.message);
+        });
+}
