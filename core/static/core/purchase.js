@@ -126,13 +126,14 @@ function addResidentToList(resident) {
     selectedResidents.push({ ...resident, status: null });
     renderSelectedResidents();
 }
+
 function renderSelectedResidents() {
     const container = document.getElementById("selected-residents-list");
     container.innerHTML = "";
 
     selectedResidents.forEach((resident, index) => {
         const wrapper = document.createElement("div");
-        wrapper.setAttribute("data-id", resident.id);  // ✅ ОБЯЗАТЕЛЬНО
+        wrapper.setAttribute("data-id", resident.id);  // 💥 КРИТИЧЕСКО!
         wrapper.style.marginTop = "10px";
 
         const label = document.createElement("span");
@@ -158,7 +159,6 @@ function renderSelectedResidents() {
     checkAllStatusesSelected();
 }
 
-
 function checkAllStatusesSelected() {
     const allSelected = selectedResidents.every(r => r.status);
     document.getElementById("save-purchase-button").style.display = allSelected ? "block" : "none";
@@ -167,63 +167,54 @@ function checkAllStatusesSelected() {
 function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
-    const selectedResidents = Array.from(document.querySelectorAll("#selected-residents-list div[data-id]")).map(div => {
+    const elements = Array.from(document.querySelectorAll("#selected-residents-list div[data-id]"));
+    if (!elements.length) {
+        alert("Ошибка: выбранные резиденты не найдены");
+        return;
+    }
+
+    const toSend = elements.map(div => {
         const id = parseInt(div.getAttribute("data-id"));
-        const statusText = div.querySelector("select").value;
-        const status = mapStatusToCode(statusText);
+        const status = div.querySelector("select").value;
         const payment =
             status === "paid" ? 100000 :
             status === "partial" ? 50000 : 0;
 
         return {
             resident: id,
-            status: status,
+            event: selectedEventId,
+            status,
             joined_at: today,
-            payment: payment
+            payment,
+            attended: false,
+            notified: false,
+            came: false
         };
     });
 
-    const promises = selectedResidents.map(r =>
-        fetch("/api/participants/", {
+    Promise.all(toSend.map(r =>
+        fetch(PARTICIPATIONS_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                resident: r.resident,
-                event: selectedEventId,
-                status: r.status,
-                joined_at: r.joined_at,
-                payment: r.payment,
-                attended: false,
-                notified: false,
-                came: false
-            })
+            body: JSON.stringify(r)
         })
-    );
+    ))
+    .then(responses => {
+        const failed = responses.find(res => !res.ok);
+        if (failed) {
+            failed.json().then(data => {
+                console.error("Ошибка сервера:", data);
+                alert("Ошибка при сохранении: " + JSON.stringify(data));
+            });
+            return;
+        }
 
-    Promise.all(promises)
-        .then(responses => {
-            const failed = responses.find(res => !res.ok);
-            if (failed) {
-                failed.json().then(data => {
-                    console.error("Ошибка от сервера:", data);
-                    alert("Ошибка при сохранении: " + JSON.stringify(data));
-                });
-                return;
-            }
-
-            alert("Покупки успешно добавлены!");
-            closePurchasePopup();
-            if (typeof fetchEvents === "function") fetchEvents();
-        })
-        .catch(err => {
-            console.error("Ошибка при сохранении (catch):", err);
-            alert("Ошибка при сохранении покупок");
-        });
-}
-
-function mapStatusToCode(text) {
-    if (text === "оплачено") return "paid";
-    if (text === "оплачено частично") return "partial";
-    if (text === "забронировано") return "reserved";
-    return "reserved";
+        alert("Покупки успешно добавлены!");
+        closePurchasePopup();
+        if (typeof fetchEvents === "function") fetchEvents();
+    })
+    .catch(err => {
+        console.error("Ошибка при сохранении:", err);
+        alert("Ошибка при сохранении покупок");
+    });
 }
