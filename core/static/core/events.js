@@ -405,3 +405,130 @@ function addEvent() {
 
 
 btn.className = "event-button";
+
+
+
+
+let newSelectedEvent = null;
+let newAllResidents = [];
+let newSelectedResidents = [];
+
+function openNewPurchasePopup() {
+    document.getElementById("newPurchasePopupOverlay").classList.remove("hidden");
+    document.getElementById("newPurchaseStep1").classList.remove("hidden");
+    document.getElementById("newPurchaseStep2").classList.add("hidden");
+    document.getElementById("newEventButtonsContainer").innerHTML = "";
+    document.getElementById("newResidentResults").innerHTML = "";
+    document.getElementById("newSelectedResidents").innerHTML = "";
+    document.getElementById("newResidentSearch").value = "";
+    document.getElementById("newSavePurchaseBtn").classList.add("hidden");
+
+    fetch("/api/events/")
+        .then(res => res.json())
+        .then(events => {
+            const container = document.getElementById("newEventButtonsContainer");
+            events.filter(e => !e.is_finished).forEach(event => {
+                const btn = document.createElement("button");
+                btn.textContent = `${event.title} (${event.date})`;
+                btn.onclick = () => newSelectEvent(event.id);
+                container.appendChild(btn);
+            });
+        });
+}
+
+function closeNewPurchasePopup() {
+    document.getElementById("newPurchasePopupOverlay").classList.add("hidden");
+}
+
+function newSelectEvent(eventId) {
+    newSelectedEvent = eventId;
+    document.getElementById("newPurchaseStep1").classList.add("hidden");
+    document.getElementById("newPurchaseStep2").classList.remove("hidden");
+
+    fetch("/api/residents/")
+        .then(res => res.json())
+        .then(data => {
+            newAllResidents = data;
+        });
+}
+
+function newSearchResidents() {
+    const query = document.getElementById("newResidentSearch").value.toLowerCase();
+    const results = newAllResidents.filter(r =>
+        r.full_name.toLowerCase().includes(query) || r.phone.includes(query)
+    );
+    const container = document.getElementById("newResidentResults");
+    container.innerHTML = "";
+
+    results.forEach(resident => {
+        if (newSelectedResidents.find(r => r.id === resident.id)) return;
+
+        const div = document.createElement("div");
+        div.textContent = `${resident.full_name} (${resident.phone})`;
+
+        const btn = document.createElement("button");
+        btn.textContent = "Добавить";
+        btn.onclick = () => {
+            newSelectedResidents.push({ ...resident, status: "reserved" });
+            renderNewSelectedResidents();
+        };
+
+        div.appendChild(btn);
+        container.appendChild(div);
+    });
+}
+
+function renderNewSelectedResidents() {
+    const container = document.getElementById("newSelectedResidents");
+    container.innerHTML = "";
+
+    newSelectedResidents.forEach((res, index) => {
+        const div = document.createElement("div");
+        div.className = "new-selected-resident";
+        div.innerHTML = `
+            <span>${res.full_name} (${res.phone})</span>
+            <select onchange="newSelectedResidents[${index}].status = this.value">
+                <option value="reserved" ${res.status === "reserved" ? "selected" : ""}>Забронировано</option>
+                <option value="partial" ${res.status === "partial" ? "selected" : ""}>Частично</option>
+                <option value="paid" ${res.status === "paid" ? "selected" : ""}>Оплачено</option>
+            </select>
+        `;
+        container.appendChild(div);
+    });
+
+    document.getElementById("newSavePurchaseBtn").classList.remove("hidden");
+}
+
+function newSavePurchases() {
+    const today = new Date().toISOString().split("T")[0];
+
+    const promises = newSelectedResidents.map(r =>
+        fetch("/api/participants/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                resident: r.id,
+                event: newSelectedEvent,
+                status: r.status,
+                joined_at: today,
+                payment: r.status === "paid" ? 100000 : r.status === "partial" ? 50000 : 0,
+                attended: false,
+                notified: false,
+                came: false
+            })
+        })
+    );
+
+    Promise.all(promises)
+        .then(responses => {
+            if (responses.some(res => !res.ok)) {
+                alert("Ошибка при сохранении хотя бы одного участника");
+                return;
+            }
+
+            alert("Успешно добавлено!");
+            closeNewPurchasePopup();
+            if (typeof fetchEvents === "function") fetchEvents();
+        })
+        .catch(() => alert("Ошибка при сохранении"));
+}
