@@ -135,7 +135,8 @@
     <h1>Список событий</h1>
     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
         <button onclick="openEventPopup()">Добавить событие</button>
-        <button onclick="openPurchasePopup()">Добавить покупку</button>
+        <button onclick="openNewPurchasePopup()">Добавить покупкуы</button>
+
     </div>
 
     <table id="eventsTable">
@@ -179,29 +180,32 @@
         </div>
     </div>
 
-    <!-- Попап: Добавить покупку -->
-    <div id="purchase-popup-overlay" style="display: none;">
-        <div id="purchase-popup">
-            <div id="purchase-step-event">
-                <h3>Выберите ивент</h3>
-                <div id="event-list-container"></div>
-            </div>
+    <!-- Новый попап: Добавление покупки -->
+<div id="newPurchasePopupOverlay" class="new-popup-overlay hidden">
+    <div class="new-popup">
+        <h2>Добавление покупки</h2>
 
-            <div id="purchase-step-residents" style="display: none;">
-                <h3>Выберите резидентов</h3>
-                <input type="text" id="resident-search-input" placeholder="Поиск по ФИО или номеру...">
-                <button onclick="searchResidents()">Поиск</button>
-                <div id="resident-search-results"></div>
-
-                <h4>Выбранные резиденты:</h4>
-                <div id="selected-residents-list"></div>
-
-                <button id="save-purchase-button" style="display: none;" onclick="savePurchases()">Сохранить</button>
-            </div>
-
-            <button onclick="closePurchasePopup()" style="margin-top: 15px;">Закрыть</button>
+        <div id="newPurchaseStep1">
+            <h3>Шаг 1: Выберите ивент</h3>
+            <div id="newEventButtonsContainer" class="new-buttons-list"></div>
         </div>
+
+        <div id="newPurchaseStep2" class="hidden">
+            <h3>Шаг 2: Выберите резидентов</h3>
+            <input type="text" id="newResidentSearch" placeholder="Поиск по имени или номеру">
+            <button onclick="newSearchResidents()">Поиск</button>
+            <div id="newResidentResults"></div>
+
+            <h4>Выбранные:</h4>
+            <div id="newSelectedResidents"></div>
+
+            <button id="newSavePurchaseBtn" onclick="newSavePurchases()" class="hidden">Сохранить</button>
+        </div>
+
+        <button onclick="closeNewPurchasePopup()">Закрыть</button>
     </div>
+</div>
+
 
     <!-- Попап: Участники события -->
     <div id="eventParticipantsPopup" class="popup hidden">

@@ -357,3 +357,19 @@ tr:not(:last-child) {
   background-color: #ffd9dd;
 }
 
+.event-button {
+    display: block;
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #be0036;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.3s;
+}
+.event-button:hover {
+    background-color: #a1002d;
+}
