@@ -167,54 +167,43 @@ function checkAllStatusesSelected() {
 function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
-    const elements = Array.from(document.querySelectorAll("#selected-residents-list div[data-id]"));
-    if (!elements.length) {
-        alert("Ошибка: выбранные резиденты не найдены");
-        return;
-    }
-
-    const toSend = elements.map(div => {
-        const id = parseInt(div.getAttribute("data-id"));
-        const status = div.querySelector("select").value;
-        const payment =
-            status === "paid" ? 100000 :
-            status === "partial" ? 50000 : 0;
-
-        return {
-            resident: id,
-            event: selectedEventId,
-            status,
-            joined_at: today,
-            payment,
-            attended: false,
-            notified: false,
-            came: false
-        };
-    });
-
-    Promise.all(toSend.map(r =>
+    const promises = selectedResidents.map(r =>
         fetch(PARTICIPATIONS_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(r)
+            body: JSON.stringify({
+                resident: r.id,
+                event: selectedEventId,
+                status: r.status,
+                joined_at: today,
+                payment:
+                    r.status === "paid" ? 100000 :
+                    r.status === "partial" ? 50000 : 0,
+                attended: false,
+                notified: false,
+                came: false
+            })
         })
-    ))
-    .then(responses => {
-        const failed = responses.find(res => !res.ok);
-        if (failed) {
-            failed.json().then(data => {
-                console.error("Ошибка сервера:", data);
-                alert("Ошибка при сохранении: " + JSON.stringify(data));
-            });
-            return;
-        }
+    );
 
-        alert("Покупки успешно добавлены!");
-        closePurchasePopup();
-        if (typeof fetchEvents === "function") fetchEvents();
-    })
-    .catch(err => {
-        console.error("Ошибка при сохранении:", err);
-        alert("Ошибка при сохранении покупок");
-    });
+    Promise.all(promises)
+        .then(responses => {
+            const failed = responses.find(res => !res.ok);
+            if (failed) {
+                failed.json().then(data => {
+                    console.error("Ошибка от сервера:", data);
+                    alert("Ошибка при сохранении: " + JSON.stringify(data));
+                });
+                return;
+            }
+
+            alert("Покупки успешно добавлены!");
+            closePurchasePopup();
+            if (typeof fetchEvents === "function") fetchEvents();
+        })
+        .catch(err => {
+            console.error("Ошибка при сохранении (catch):", err);
+            alert("Ошибка при сохранении покупок");
+        });
 }
+
