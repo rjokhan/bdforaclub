@@ -259,3 +259,32 @@ function openEventPopup() {
 function closeEventPopup() {
     document.getElementById('event-popup-overlay').style.display = 'none';
 }
+
+
+
+function addEvent() {
+    const title = document.getElementById("eventNameInput").value;
+    const date = document.getElementById("eventDateInput").value;
+    const seats = parseInt(document.getElementById("eventSeatsInput").value);
+    const price = parseFloat(document.getElementById("eventPriceInput").value);
+
+    if (!title || !date || isNaN(seats) || isNaN(price)) {
+        alert("Пожалуйста, заполните все поля корректно.");
+        return;
+    }
+
+    fetch("/api/events/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, date, seats, price })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Ошибка при создании события");
+        return res.json();
+    })
+    .then(() => {
+        closeEventPopup();
+        fetchEvents(); // обновим список
+    })
+    .catch(err => alert(err.message));
+}
