@@ -532,3 +532,11 @@ function newSavePurchases() {
         })
         .catch(() => alert("Ошибка при сохранении"));
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetchEvents();
+    const purchaseBtn = document.getElementById("addPurchaseBtn");
+    if (purchaseBtn) {
+        purchaseBtn.addEventListener("click", openNewPurchasePopup);
+    }
+});
