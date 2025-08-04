@@ -7,113 +7,137 @@ let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
 
-function openNewPurchasePopup() {
-    const overlay = document.getElementById("newPurchasePopupOverlay");
-    overlay.classList.remove("hidden");
+function openPurchasePopup() {
+    const overlay = document.getElementById("purchase-popup-overlay");
+    if (!overlay) return;
 
-    document.getElementById("newPurchaseStep1").classList.remove("hidden");
-    document.getElementById("newPurchaseStep2").classList.add("hidden");
-    document.getElementById("newResidentSearch").value = "";
-    document.getElementById("newResidentResults").innerHTML = "";
-    document.getElementById("newSelectedResidents").innerHTML = "";
-    document.getElementById("newSavePurchaseBtn").classList.add("hidden");
+    overlay.style.display = "flex";
+
+    document.getElementById("purchase-step-event").style.display = "block";
+    document.getElementById("purchase-step-residents").style.display = "none";
 
     selectedEventId = null;
     selectedResidents = [];
     existingParticipantIds = [];
 
+    document.getElementById("event-list-container").innerHTML = "";
+    document.getElementById("resident-search-results").innerHTML = "";
+    document.getElementById("selected-residents-list").innerHTML = "";
+    document.getElementById("resident-search-input").value = "";
+    document.getElementById("save-purchase-button").style.display = "none";
+
     fetch(EVENTS_API)
         .then(res => res.json())
-        .then(renderNewEventButtons)
+        .then(renderEventSelection)
         .catch(() => alert("Ошибка при загрузке событий"));
 }
 
-function renderNewEventButtons(events) {
-    const container = document.getElementById("newEventButtonsContainer");
+function closePurchasePopup() {
+    const overlay = document.getElementById("purchase-popup-overlay");
+    if (!overlay) return;
+
+    overlay.style.display = "none";
+    selectedEventId = null;
+    selectedResidents = [];
+    existingParticipantIds = [];
+
+    document.getElementById("event-list-container").innerHTML = "";
+    document.getElementById("resident-search-results").innerHTML = "";
+    document.getElementById("selected-residents-list").innerHTML = "";
+    document.getElementById("resident-search-input").value = "";
+    document.getElementById("save-purchase-button").style.display = "none";
+}
+
+function renderEventSelection(events) {
+    const container = document.getElementById("event-list-container");
     container.innerHTML = "";
 
     events
-        .filter(event => !event.is_finished)
+        .filter(e => !e.is_finished)
         .forEach(event => {
             const btn = document.createElement("button");
-            btn.className = "new-buttons-list-button";
             btn.textContent = `${event.title} (${event.date})`;
-            btn.onclick = () => {
-                console.log("Клик по событию:", event.id);
-                selectEventForPurchase(event.id);
-            };
+            btn.className = "event-button";
+            btn.onclick = () => selectEventForPurchase(event.id);
             container.appendChild(btn);
         });
 }
 
-
-function selectNewEvent(eventId) {
+function selectEventForPurchase(eventId) {
     selectedEventId = eventId;
 
-    document.getElementById("newPurchaseStep1").classList.add("hidden");
-    document.getElementById("newPurchaseStep2").classList.remove("hidden");
+    document.getElementById("purchase-step-event").style.display = "none";
+    document.getElementById("purchase-step-residents").style.display = "block";
+    document.getElementById("save-purchase-button").style.display = "none";
 
-    fetch(RESIDENTS_API)
-        .then(res => res.json())
-        .then(data => {
-            allResidents = data;
-        });
-
-    fetch(PARTICIPATIONS_API)
-        .then(res => res.json())
-        .then(data => {
-            existingParticipantIds = data
-                .filter(p => p.event === selectedEventId)
-                .map(p => p.resident);
-        });
+    Promise.all([
+        fetch(RESIDENTS_API).then(res => res.json()),
+        fetch(PARTICIPATIONS_API).then(res => res.json())
+    ])
+    .then(([residents, participations]) => {
+        allResidents = residents;
+        existingParticipantIds = participations
+            .filter(p => p.event === selectedEventId)
+            .map(p => p.resident);
+    })
+    .catch(() => alert("Ошибка при загрузке резидентов или участников"));
 }
 
-function newSearchResidents() {
-    const input = document.getElementById("newResidentSearch").value.toLowerCase();
-    const container = document.getElementById("newResidentResults");
+function searchResidents() {
+    const input = document.getElementById("resident-search-input").value.toLowerCase();
+    const results = allResidents.filter(r =>
+        r.full_name.toLowerCase().includes(input) ||
+        r.phone.includes(input)
+    );
+    renderSearchResults(results);
+}
+
+function renderSearchResults(results) {
+    const container = document.getElementById("resident-search-results");
     container.innerHTML = "";
 
-    const results = allResidents.filter(r =>
-        (r.full_name?.toLowerCase().includes(input) || r.phone?.includes(input)) &&
-        !selectedResidents.find(sr => sr.id === r.id) &&
-        !existingParticipantIds.includes(r.id)
-    );
-
-    if (results.length === 0) {
-        container.innerHTML = "<p>Ничего не найдено или уже добавлен.</p>";
-        return;
-    }
-
     results.forEach(resident => {
-        const div = document.createElement("div");
-        div.className = "new-selected-resident";
+        const alreadyAdded = selectedResidents.find(r => r.id === resident.id);
+        const alreadyInEvent = existingParticipantIds.includes(resident.id);
+        if (alreadyAdded || alreadyInEvent) return;
 
-        const label = document.createElement("span");
-        label.textContent = `${resident.full_name} (${resident.phone})`;
+        const div = document.createElement("div");
+        div.textContent = `${resident.full_name} (${resident.phone})`;
 
         const btn = document.createElement("button");
-        btn.textContent = "➕";
-        btn.onclick = () => {
-            selectedResidents.push({ ...resident, status: null });
-            newRenderSelectedResidents();
-        };
+        btn.textContent = "Добавить";
+        btn.onclick = () => addResidentToList(resident);
 
-        div.appendChild(label);
         div.appendChild(btn);
         container.appendChild(div);
     });
+
+    if (!container.innerHTML.trim()) {
+        container.innerHTML = "<p>Ничего не найдено или уже добавлен.</p>";
+    }
 }
 
-function newRenderSelectedResidents() {
-    const container = document.getElementById("newSelectedResidents");
+function addResidentToList(resident) {
+    if (selectedResidents.find(r => r.id === resident.id)) {
+        alert("Резидент уже выбран");
+        return;
+    }
+
+    selectedResidents.push({ ...resident, status: null });
+    renderSelectedResidents();
+}
+
+function renderSelectedResidents() {
+    const container = document.getElementById("selected-residents-list");
     container.innerHTML = "";
 
-    selectedResidents.forEach((r, i) => {
-        const div = document.createElement("div");
-        div.className = "new-selected-resident";
+    selectedResidents.forEach((resident, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.setAttribute("data-id", resident.id);  // 💥 КРИТИЧЕСКО!
+        wrapper.style.marginTop = "10px";
 
         const label = document.createElement("span");
-        label.textContent = `${r.full_name} (${r.phone})`;
+        label.textContent = `${resident.full_name} (${resident.phone})`;
 
         const select = document.createElement("select");
         select.innerHTML = `
@@ -123,24 +147,24 @@ function newRenderSelectedResidents() {
             <option value="partial">Оплачено частично</option>
         `;
         select.onchange = () => {
-            selectedResidents[i].status = select.value;
-            checkAllNewStatusesSelected();
+            selectedResidents[index].status = select.value;
+            checkAllStatusesSelected();
         };
 
-        div.appendChild(label);
-        div.appendChild(select);
-        container.appendChild(div);
+        wrapper.appendChild(label);
+        wrapper.appendChild(select);
+        container.appendChild(wrapper);
     });
 
-    checkAllNewStatusesSelected();
+    checkAllStatusesSelected();
 }
 
-function checkAllNewStatusesSelected() {
-    const allSelected = selectedResidents.length > 0 && selectedResidents.every(r => r.status);
-    document.getElementById("newSavePurchaseBtn").classList.toggle("hidden", !allSelected);
+function checkAllStatusesSelected() {
+    const allSelected = selectedResidents.every(r => r.status);
+    document.getElementById("save-purchase-button").style.display = allSelected ? "block" : "none";
 }
 
-function newSavePurchases() {
+function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
     const promises = selectedResidents.map(r =>
@@ -164,24 +188,22 @@ function newSavePurchases() {
 
     Promise.all(promises)
         .then(responses => {
-            const failed = responses.find(r => !r.ok);
+            const failed = responses.find(res => !res.ok);
             if (failed) {
                 failed.json().then(data => {
+                    console.error("Ошибка от сервера:", data);
                     alert("Ошибка при сохранении: " + JSON.stringify(data));
                 });
                 return;
             }
 
-            alert("Покупки добавлены");
-            closeNewPurchasePopup();
+            alert("Покупки успешно добавлены!");
+            closePurchasePopup();
             if (typeof fetchEvents === "function") fetchEvents();
         })
         .catch(err => {
-            console.error(err);
-            alert("Ошибка при сохранении");
+            console.error("Ошибка при сохранении (catch):", err);
+            alert("Ошибка при сохранении покупок");
         });
 }
 
-function closeNewPurchasePopup() {
-    document.getElementById("newPurchasePopupOverlay").classList.add("hidden");
-}
