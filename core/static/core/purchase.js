@@ -32,14 +32,20 @@ function renderNewEventButtons(events) {
     const container = document.getElementById("newEventButtonsContainer");
     container.innerHTML = "";
 
-    events.filter(e => !e.is_finished).forEach(event => {
-        const btn = document.createElement("button");
-        btn.className = "event-button";
-        btn.textContent = `${event.title} (${event.date})`;
-        btn.onclick = () => selectNewEvent(event.id);
-        container.appendChild(btn);
-    });
+    events
+        .filter(event => !event.is_finished)
+        .forEach(event => {
+            const btn = document.createElement("button");
+            btn.className = "new-buttons-list-button";
+            btn.textContent = `${event.title} (${event.date})`;
+            btn.onclick = () => {
+                console.log("Клик по событию:", event.id);
+                selectEventForPurchase(event.id);
+            };
+            container.appendChild(btn);
+        });
 }
+
 
 function selectNewEvent(eventId) {
     selectedEventId = eventId;
