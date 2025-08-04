@@ -373,3 +373,7 @@ tr:not(:last-child) {
 .event-button:hover {
     background-color: #a1002d;
 }
+
+.hidden {
+  display: none !important;
+}
