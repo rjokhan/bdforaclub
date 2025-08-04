@@ -57,7 +57,7 @@ function renderEventSelection(events) {
         .forEach(event => {
             const btn = document.createElement("button");
             btn.textContent = `${event.title} (${event.date})`;
-            btn.className = "event-button"; // добавляем стиль
+            btn.className = "event-button";
             btn.onclick = () => selectEventForPurchase(event.id);
             container.appendChild(btn);
         });
@@ -133,6 +133,7 @@ function renderSelectedResidents() {
 
     selectedResidents.forEach((resident, index) => {
         const wrapper = document.createElement("div");
+        wrapper.setAttribute("data-id", resident.id); // ← важно!
         wrapper.style.marginTop = "10px";
 
         const label = document.createElement("span");
@@ -219,8 +220,6 @@ function savePurchases() {
             alert("Ошибка при сохранении покупок");
         });
 }
-
-
 
 function mapStatusToCode(text) {
     if (text === "оплачено") return "paid";
