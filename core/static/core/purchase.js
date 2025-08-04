@@ -172,42 +172,41 @@ function mapStatusToCode(statusText) {
 }
 
 function savePurchases() {
+    const selectedResidents = Array.from(document.querySelectorAll("#selected-residents-list [data-id]")).map(div => {
+        return {
+            resident: parseInt(div.getAttribute("data-id")),
+            status: div.querySelector("select").value
+        };
+    });
+
+    const selectedEventId = window.selectedEventId;
+    if (!selectedEventId) {
+        alert("Сначала выберите ивент");
+        return;
+    }
+
     const today = new Date().toISOString().split("T")[0];
 
-    const promises = selectedResidents.map(r => {
-        const statusCode = mapStatusToCode(r.status);
-        const paymentAmount =
-            statusCode === "paid" ? 100000 :
-            statusCode === "partial" ? 50000 : 0;
-
-        return fetch(PARTICIPATIONS_API, {
+    const promises = selectedResidents.map(r =>
+        fetch("/api/participants/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                resident: r.id,
                 event: selectedEventId,
+                resident: r.resident,
+                status: r.status,
                 joined_at: today,
                 attended: false,
-                notified: false,
-                came: false,
-                status: statusCode,
-                payment: paymentAmount
+                notified: false
             })
-        });
-    });
+        })
+    );
 
     Promise.all(promises)
         .then(responses => {
-            if (responses.some(res => !res.ok)) {
-                console.error("Ошибка при сохранении. Ответы:", responses);
-                throw new Error("Ошибка при сохранении");
-            }
-            alert("Покупки успешно добавлены!");
+            if (responses.some(res => !res.ok)) throw new Error("Ошибка при сохранении");
             closePurchasePopup();
-            if (typeof fetchEvents === "function") fetchEvents();
+            fetchEvents();
         })
-        .catch(err => {
-            console.error("Ошибка при сохранении покупок:", err);
-            alert("Ошибка при сохранении покупок");
-        });
+        .catch(err => alert(err.message));
 }
