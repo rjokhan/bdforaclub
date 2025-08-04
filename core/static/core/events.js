@@ -63,14 +63,12 @@ function renderEvents(events, participations) {
 function deleteEvent(id) {
     if (!confirm("Удалить событие?")) return;
 
-    fetch(`${EVENTS_API}${id}/`, {
-        method: "DELETE"
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Ошибка при удалении");
-        fetchEvents();
-    })
-    .catch(err => alert(err.message));
+    fetch(`${EVENTS_API}${id}/`, { method: "DELETE" })
+        .then(res => {
+            if (!res.ok) throw new Error("Ошибка при удалении");
+            fetchEvents();
+        })
+        .catch(err => alert(err.message));
 }
 
 function toggleStatus(id, isFinished) {
@@ -123,19 +121,15 @@ function openEventPopupWithParticipants(eventId) {
 
                 div.innerHTML = `
                     <div><strong>${p.full_name || "—"}</strong><br><small>${p.phone || "—"}</small></div>
-
                     <div class="status-chip ${statusColor}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
-
                     <div class="toggle-group">
                         <button class="${p.notified ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'notified', true)">✅</button>
                         <button class="${!p.notified ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'notified', false)">❌</button>
                     </div>
-
                     <div class="toggle-group">
                         <button class="${p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', true)">✅</button>
                         <button class="${!p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', false)">❌</button>
                     </div>
-
                     <div><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
                 `;
 
@@ -222,15 +216,13 @@ function toggleState(button, participationId, field, value) {
 function deleteParticipation(id) {
     if (!confirm("Удалить этого участника?")) return;
 
-    fetch(`${PARTICIPANTS_API}${id}/`, {
-        method: "DELETE"
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Ошибка при удалении");
-        fetchEvents();
-        closeParticipantsPopup();
-    })
-    .catch(err => alert(err.message));
+    fetch(`${PARTICIPANTS_API}${id}/`, { method: "DELETE" })
+        .then(res => {
+            if (!res.ok) throw new Error("Ошибка при удалении");
+            fetchEvents();
+            closeParticipantsPopup();
+        })
+        .catch(err => alert(err.message));
 }
 
 function closeParticipantsPopup() {
@@ -251,16 +243,12 @@ function getStatusColor(code) {
 
 document.addEventListener("DOMContentLoaded", fetchEvents);
 
-
 function openEventPopup() {
     document.getElementById('event-popup-overlay').style.display = 'flex';
 }
-
 function closeEventPopup() {
     document.getElementById('event-popup-overlay').style.display = 'none';
 }
-
-
 
 function addEvent() {
     const title = document.getElementById("eventNameInput").value;
@@ -284,7 +272,63 @@ function addEvent() {
     })
     .then(() => {
         closeEventPopup();
-        fetchEvents(); // обновим список
+        fetchEvents();
     })
     .catch(err => alert(err.message));
+}
+
+function searchResidents() {
+    const query = document.getElementById("resident-search-input").value.trim().toLowerCase();
+
+    fetch("/api/residents/")
+        .then(res => res.json())
+        .then(data => {
+            const resultsContainer = document.getElementById("resident-search-results");
+            resultsContainer.innerHTML = "";
+
+            const selected = Array.from(document.querySelectorAll("#selected-residents-list [data-id]"))
+                .map(el => parseInt(el.getAttribute("data-id")));
+
+            const filtered = data.filter(r => {
+                return (
+                    !selected.includes(r.id) &&
+                    (
+                        (r.full_name && r.full_name.toLowerCase().includes(query)) ||
+                        (r.phone && r.phone.includes(query))
+                    )
+                );
+            });
+
+            if (filtered.length === 0) {
+                resultsContainer.innerHTML = "<p>Ничего не найдено или уже добавлен.</p>";
+                return;
+            }
+
+            filtered.forEach(resident => {
+                const div = document.createElement("div");
+                div.innerHTML = `
+                    ${resident.full_name || "—"} (${resident.phone || "—"})
+                    <button onclick="selectResident(${resident.id}, '${resident.full_name}', '${resident.phone}')">Добавить</button>
+                `;
+                resultsContainer.appendChild(div);
+            });
+        });
+}
+
+function selectResident(id, full_name, phone) {
+    const container = document.getElementById("selected-residents-list");
+
+    const div = document.createElement("div");
+    div.setAttribute("data-id", id);
+    div.innerHTML = `
+        ${full_name || "—"} (${phone || "—"})
+        <select>
+            <option value="paid">Оплачено</option>
+            <option value="partial">Частично</option>
+            <option value="reserved">Забронировано</option>
+        </select>
+    `;
+
+    container.appendChild(div);
+    document.getElementById("save-purchase-button").style.display = "block";
 }
