@@ -7,68 +7,66 @@ let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
 
-function openPurchasePopup() {
-    const overlay = document.getElementById("purchase-popup-overlay");
+function openNewPurchasePopup() {
+    const overlay = document.getElementById("newPurchasePopupOverlay");
     if (!overlay) return;
 
-    overlay.style.display = "flex";
+    overlay.classList.remove("hidden");
 
-    document.getElementById("purchase-step-event").style.display = "block";
-    document.getElementById("purchase-step-residents").style.display = "none";
+    document.getElementById("newPurchaseStep1").classList.remove("hidden");
+    document.getElementById("newPurchaseStep2").classList.add("hidden");
+    document.getElementById("newResidentSearch").value = "";
+    document.getElementById("newResidentResults").innerHTML = "";
+    document.getElementById("newSelectedResidents").innerHTML = "";
+    document.getElementById("newSavePurchaseBtn").classList.add("hidden");
 
     selectedEventId = null;
     selectedResidents = [];
     existingParticipantIds = [];
-
-    document.getElementById("event-list-container").innerHTML = "";
-    document.getElementById("resident-search-results").innerHTML = "";
-    document.getElementById("selected-residents-list").innerHTML = "";
-    document.getElementById("resident-search-input").value = "";
-    document.getElementById("save-purchase-button").style.display = "none";
 
     fetch(EVENTS_API)
         .then(res => res.json())
-        .then(renderEventSelection)
+        .then(renderNewEventButtons)
         .catch(() => alert("Ошибка при загрузке событий"));
 }
 
-function closePurchasePopup() {
-    const overlay = document.getElementById("purchase-popup-overlay");
+function closeNewPurchasePopup() {
+    const overlay = document.getElementById("newPurchasePopupOverlay");
     if (!overlay) return;
 
-    overlay.style.display = "none";
+    overlay.classList.add("hidden");
+
     selectedEventId = null;
     selectedResidents = [];
     existingParticipantIds = [];
 
-    document.getElementById("event-list-container").innerHTML = "";
-    document.getElementById("resident-search-results").innerHTML = "";
-    document.getElementById("selected-residents-list").innerHTML = "";
-    document.getElementById("resident-search-input").value = "";
-    document.getElementById("save-purchase-button").style.display = "none";
+    document.getElementById("newEventButtonsContainer").innerHTML = "";
+    document.getElementById("newResidentResults").innerHTML = "";
+    document.getElementById("newSelectedResidents").innerHTML = "";
+    document.getElementById("newResidentSearch").value = "";
+    document.getElementById("newSavePurchaseBtn").classList.add("hidden");
 }
 
-function renderEventSelection(events) {
-    const container = document.getElementById("event-list-container");
+function renderNewEventButtons(events) {
+    const container = document.getElementById("newEventButtonsContainer");
     container.innerHTML = "";
 
     events
-        .filter(e => !e.is_finished)
+        .filter(event => !event.is_finished)
         .forEach(event => {
             const btn = document.createElement("button");
+            btn.className = "new-buttons-list-button";
             btn.textContent = `${event.title} (${event.date})`;
-            btn.className = "event-button";
-            btn.onclick = () => selectEventForPurchase(event.id);
+            btn.onclick = () => selectNewEvent(event.id);
             container.appendChild(btn);
         });
 }
 
-function selectEventForPurchase(eventId) {
+function selectNewEvent(eventId) {
     selectedEventId = eventId;
 
-    document.getElementById("purchase-step-event").style.display = "none";
-    document.getElementById("purchase-step-residents").style.display = "block";
-    document.getElementById("save-purchase-button").style.display = "none";
+    document.getElementById("newPurchaseStep1").classList.add("hidden");
+    document.getElementById("newPurchaseStep2").classList.remove("hidden");
 
     Promise.all([
         fetch(RESIDENTS_API).then(res => res.json()),
@@ -83,61 +81,52 @@ function selectEventForPurchase(eventId) {
     .catch(() => alert("Ошибка при загрузке резидентов или участников"));
 }
 
-function searchResidents() {
-    const input = document.getElementById("resident-search-input").value.toLowerCase();
-    const results = allResidents.filter(r =>
-        r.full_name.toLowerCase().includes(input) ||
-        r.phone.includes(input)
-    );
-    renderSearchResults(results);
-}
-
-function renderSearchResults(results) {
-    const container = document.getElementById("resident-search-results");
+function newSearchResidents() {
+    const input = document.getElementById("newResidentSearch").value.toLowerCase();
+    const container = document.getElementById("newResidentResults");
     container.innerHTML = "";
 
-    results.forEach(resident => {
-        const alreadyAdded = selectedResidents.find(r => r.id === resident.id);
-        const alreadyInEvent = existingParticipantIds.includes(resident.id);
-        if (alreadyAdded || alreadyInEvent) return;
+    const results = allResidents.filter(r =>
+        (r.full_name?.toLowerCase().includes(input) || r.phone?.includes(input)) &&
+        !selectedResidents.find(sr => sr.id === r.id) &&
+        !existingParticipantIds.includes(r.id)
+    );
 
-        const div = document.createElement("div");
-        div.textContent = `${resident.full_name} (${resident.phone})`;
-
-        const btn = document.createElement("button");
-        btn.textContent = "Добавить";
-        btn.onclick = () => addResidentToList(resident);
-
-        div.appendChild(btn);
-        container.appendChild(div);
-    });
-
-    if (!container.innerHTML.trim()) {
+    if (results.length === 0) {
         container.innerHTML = "<p>Ничего не найдено или уже добавлен.</p>";
-    }
-}
-
-function addResidentToList(resident) {
-    if (selectedResidents.find(r => r.id === resident.id)) {
-        alert("Резидент уже выбран");
         return;
     }
 
-    selectedResidents.push({ ...resident, status: null });
-    renderSelectedResidents();
-}
-
-function renderSelectedResidents() {
-    const container = document.getElementById("selected-residents-list");
-    container.innerHTML = "";
-
-    selectedResidents.forEach((resident, index) => {
-        const wrapper = document.createElement("div");
-        wrapper.setAttribute("data-id", resident.id);  // 💥 КРИТИЧЕСКО!
-        wrapper.style.marginTop = "10px";
+    results.forEach(resident => {
+        const div = document.createElement("div");
+        div.className = "new-selected-resident";
 
         const label = document.createElement("span");
         label.textContent = `${resident.full_name} (${resident.phone})`;
+
+        const btn = document.createElement("button");
+        btn.textContent = "➕";
+        btn.onclick = () => {
+            selectedResidents.push({ ...resident, status: null });
+            newRenderSelectedResidents();
+        };
+
+        div.appendChild(label);
+        div.appendChild(btn);
+        container.appendChild(div);
+    });
+}
+
+function newRenderSelectedResidents() {
+    const container = document.getElementById("newSelectedResidents");
+    container.innerHTML = "";
+
+    selectedResidents.forEach((r, i) => {
+        const div = document.createElement("div");
+        div.className = "new-selected-resident";
+
+        const label = document.createElement("span");
+        label.textContent = `${r.full_name} (${r.phone})`;
 
         const select = document.createElement("select");
         select.innerHTML = `
@@ -147,24 +136,24 @@ function renderSelectedResidents() {
             <option value="partial">Оплачено частично</option>
         `;
         select.onchange = () => {
-            selectedResidents[index].status = select.value;
-            checkAllStatusesSelected();
+            selectedResidents[i].status = select.value;
+            checkAllNewStatusesSelected();
         };
 
-        wrapper.appendChild(label);
-        wrapper.appendChild(select);
-        container.appendChild(wrapper);
+        div.appendChild(label);
+        div.appendChild(select);
+        container.appendChild(div);
     });
 
-    checkAllStatusesSelected();
+    checkAllNewStatusesSelected();
 }
 
-function checkAllStatusesSelected() {
-    const allSelected = selectedResidents.every(r => r.status);
-    document.getElementById("save-purchase-button").style.display = allSelected ? "block" : "none";
+function checkAllNewStatusesSelected() {
+    const allSelected = selectedResidents.length > 0 && selectedResidents.every(r => r.status);
+    document.getElementById("newSavePurchaseBtn").classList.toggle("hidden", !allSelected);
 }
 
-function savePurchases() {
+function newSavePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
     const promises = selectedResidents.map(r =>
@@ -188,22 +177,20 @@ function savePurchases() {
 
     Promise.all(promises)
         .then(responses => {
-            const failed = responses.find(res => !res.ok);
+            const failed = responses.find(r => !r.ok);
             if (failed) {
                 failed.json().then(data => {
-                    console.error("Ошибка от сервера:", data);
                     alert("Ошибка при сохранении: " + JSON.stringify(data));
                 });
                 return;
             }
 
-            alert("Покупки успешно добавлены!");
-            closePurchasePopup();
+            alert("Покупки добавлены");
+            closeNewPurchasePopup();
             if (typeof fetchEvents === "function") fetchEvents();
         })
         .catch(err => {
-            console.error("Ошибка при сохранении (catch):", err);
-            alert("Ошибка при сохранении покупок");
+            console.error(err);
+            alert("Ошибка при сохранении");
         });
 }
-
