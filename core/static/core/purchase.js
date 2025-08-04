@@ -166,27 +166,38 @@ function checkAllStatusesSelected() {
 function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
-    const promises = selectedResidents.map(r => {
-        const statusCode = mapStatusToCode(r.status); // convert "оплачено" → "paid"
+    const selectedResidents = Array.from(document.querySelectorAll("#selected-residents-list div[data-id]")).map(div => {
+        const id = parseInt(div.getAttribute("data-id"));
+        const statusText = div.querySelector("select").value;
+        const status = mapStatusToCode(statusText);
         const payment =
-            statusCode === "paid" ? 100000 :
-            statusCode === "partial" ? 50000 : 0;
+            status === "paid" ? 100000 :
+            status === "partial" ? 50000 : 0;
 
-        return fetch("/api/participants/", {
+        return {
+            resident: id,
+            status: status,
+            joined_at: today,
+            payment: payment
+        };
+    });
+
+    const promises = selectedResidents.map(r =>
+        fetch("/api/participants/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                resident: r.id,
+                resident: r.resident,
                 event: selectedEventId,
-                status: statusCode,
-                joined_at: today,
+                status: r.status,
+                joined_at: r.joined_at,
+                payment: r.payment,
                 attended: false,
                 notified: false,
-                came: false,
-                payment: payment
+                came: false
             })
-        });
-    });
+        })
+    );
 
     Promise.all(promises)
         .then(responses => {
@@ -201,13 +212,14 @@ function savePurchases() {
 
             alert("Покупки успешно добавлены!");
             closePurchasePopup();
-            fetchEvents();
+            if (typeof fetchEvents === "function") fetchEvents();
         })
         .catch(err => {
             console.error("Ошибка при сохранении (catch):", err);
             alert("Ошибка при сохранении покупок");
         });
 }
+
 
 
 function mapStatusToCode(text) {
