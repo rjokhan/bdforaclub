@@ -1,5 +1,8 @@
 const EVENTS_API = "/api/events/";
 const PARTICIPANTS_API = "/api/participants/";
+const RESIDENTS_API = "/api/residents/";
+
+let selectedEventId = null;
 
 function fetchEvents() {
     Promise.all([
@@ -129,6 +132,7 @@ function openEventPopupWithParticipants(eventId) {
                     </div>
                     <div><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
                 `;
+
                 container.appendChild(div);
             });
 
@@ -278,7 +282,6 @@ function closePurchasePopup() {
 
 function searchResidents() {
     const query = document.getElementById("resident-search-input").value.trim().toLowerCase();
-    console.log("Поисковый запрос:", query);
 
     fetch("/api/residents/")
         .then(res => res.json())
@@ -290,17 +293,14 @@ function searchResidents() {
                 .map(el => Number(el.getAttribute("data-id")))
                 .filter(id => !isNaN(id));
 
-            console.log("Выбранные ID:", selected);
-
             const filtered = data.filter(r => {
                 const fullName = (r.full_name || "").toLowerCase();
                 const phone = String(r.phone || "");
-                const match = fullName.includes(query) || phone.includes(query);
-                const isAlreadySelected = selected.includes(r.id);
-                return match && !isAlreadySelected;
+                return (
+                    !selected.includes(r.id) &&
+                    (fullName.includes(query) || phone.includes(query))
+                );
             });
-
-            console.log("Результаты фильтрации:", filtered);
 
             if (filtered.length === 0) {
                 resultsContainer.innerHTML = "<p>Ничего не найдено или уже добавлен.</p>";
@@ -308,8 +308,8 @@ function searchResidents() {
             }
 
             filtered.forEach(resident => {
-                const safeName = JSON.stringify(resident.full_name || "—");
-                const safePhone = JSON.stringify(resident.phone || "—");
+                const safeName = `'${(resident.full_name || "—").replace(/'/g, "\\'")}'`;
+                const safePhone = `'${(resident.phone || "—").replace(/'/g, "\\'")}'`;
 
                 const div = document.createElement("div");
                 div.innerHTML = `
@@ -320,7 +320,6 @@ function searchResidents() {
             });
         });
 }
-
 
 function selectResident(id, full_name, phone) {
     const container = document.getElementById("selected-residents-list");

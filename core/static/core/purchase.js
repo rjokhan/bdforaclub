@@ -1,17 +1,17 @@
 const RESIDENTS_API = "/api/residents/";
+const EVENTS_API = "/api/events/";
+const PARTICIPANTS_API = "/api/participants/";
 
 let selectedEventId = null;
 let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
 
-
 function openPurchasePopup() {
     const overlay = document.getElementById("purchase-popup-overlay");
     if (!overlay) return;
 
     overlay.style.display = "flex";
-
     document.getElementById("purchase-step-event").style.display = "block";
     document.getElementById("purchase-step-residents").style.display = "none";
 
@@ -51,26 +51,24 @@ function renderEventSelection(events) {
     const container = document.getElementById("event-list-container");
     container.innerHTML = "";
 
-    events
-        .filter(e => !e.is_finished)
-        .forEach(event => {
-            const btn = document.createElement("button");
-            btn.textContent = `${event.title} (${event.date})`;
-            btn.onclick = () => selectEventForPurchase(event.id);
-            container.appendChild(btn);
-        });
+    events.filter(e => !e.is_finished).forEach(event => {
+        const div = document.createElement("div");
+        div.textContent = `${event.title} (${event.date})`;
+        div.style.cursor = "pointer";
+        div.onclick = () => selectEventForPurchase(event.id);
+        container.appendChild(div);
+    });
 }
 
 function selectEventForPurchase(eventId) {
     selectedEventId = eventId;
-
     document.getElementById("purchase-step-event").style.display = "none";
     document.getElementById("purchase-step-residents").style.display = "block";
     document.getElementById("save-purchase-button").style.display = "none";
 
     Promise.all([
         fetch(RESIDENTS_API).then(res => res.json()),
-        fetch(PARTICIPATIONS_API).then(res => res.json())
+        fetch(PARTICIPANTS_API).then(res => res.json())
     ])
     .then(([residents, participations]) => {
         allResidents = residents;
@@ -78,14 +76,14 @@ function selectEventForPurchase(eventId) {
             .filter(p => p.event === selectedEventId)
             .map(p => p.resident);
     })
-    .catch(() => alert("Ошибка при загрузке резидентов или участников"));
+    .catch(() => alert("Ошибка при загрузке данных"));
 }
 
 function searchResidents() {
-    const input = document.getElementById("resident-search-input").value.toLowerCase();
+    const input = document.getElementById("resident-search-input").value.trim().toLowerCase();
     const results = allResidents.filter(r =>
         r.full_name.toLowerCase().includes(input) ||
-        r.phone.includes(input)
+        (r.phone || "").includes(input)
     );
     renderSearchResults(results);
 }
@@ -100,13 +98,10 @@ function renderSearchResults(results) {
         if (alreadyAdded || alreadyInEvent) return;
 
         const div = document.createElement("div");
-        div.textContent = `${resident.full_name} (${resident.phone})`;
-
-        const btn = document.createElement("button");
-        btn.textContent = "Добавить";
-        btn.onclick = () => addResidentToList(resident);
-
-        div.appendChild(btn);
+        div.innerHTML = `
+            ${resident.full_name || "—"} (${resident.phone || "—"})
+            <button onclick="selectResident(${resident.id}, ${JSON.stringify(resident.full_name)}, ${JSON.stringify(resident.phone)})">Добавить</button>
+        `;
         container.appendChild(div);
     });
 
@@ -115,44 +110,33 @@ function renderSearchResults(results) {
     }
 }
 
-function addResidentToList(resident) {
-    if (selectedResidents.find(r => r.id === resident.id)) {
-        alert("Резидент уже выбран");
-        return;
-    }
+function selectResident(id, full_name, phone) {
+    const container = document.getElementById("selected-residents-list");
 
-    selectedResidents.push({ ...resident, status: null });
-    renderSelectedResidents();
+    if (selectedResidents.find(r => r.id === id)) return;
+
+    selectedResidents.push({ id, full_name, phone, status: null });
+
+    const div = document.createElement("div");
+    div.setAttribute("data-id", id);
+    div.innerHTML = `
+        ${full_name || "—"} (${phone || "—"})
+        <select onchange="handleStatusChange(${id}, this)">
+            <option value="">Выберите статус</option>
+            <option value="paid">Оплачено</option>
+            <option value="partial">Частично</option>
+            <option value="reserved">Забронировано</option>
+        </select>
+    `;
+
+    container.appendChild(div);
 }
 
-function renderSelectedResidents() {
-    const container = document.getElementById("selected-residents-list");
-    container.innerHTML = "";
-
-    selectedResidents.forEach((resident, index) => {
-        const wrapper = document.createElement("div");
-        wrapper.style.marginTop = "10px";
-
-        const label = document.createElement("span");
-        label.textContent = `${resident.full_name} (${resident.phone})`;
-
-        const select = document.createElement("select");
-        select.innerHTML = `
-            <option value="">Выберите статус</option>
-            <option value="оплачено">Оплачено</option>
-            <option value="забронировано">Забронировано</option>
-            <option value="оплачено частично">Оплачено частично</option>
-        `;
-        select.onchange = () => {
-            selectedResidents[index].status = select.value;
-            checkAllStatusesSelected();
-        };
-
-        wrapper.appendChild(label);
-        wrapper.appendChild(select);
-        container.appendChild(wrapper);
-    });
-
+function handleStatusChange(id, selectEl) {
+    const index = selectedResidents.findIndex(r => r.id === id);
+    if (index !== -1) {
+        selectedResidents[index].status = selectEl.value;
+    }
     checkAllStatusesSelected();
 }
 
@@ -162,27 +146,21 @@ function checkAllStatusesSelected() {
 }
 
 function savePurchases() {
-    const today = new Date().toISOString().split("T")[0];
-    const promises = selectedResidents.map(r => {
-        const paymentAmount =
-            r.status === "оплачено" ? 100 :
-            r.status === "оплачено частично" ? 50 : 0;
-
-        return fetch(PARTICIPATIONS_API, {
+    const promises = selectedResidents.map(r =>
+        fetch(PARTICIPANTS_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 resident: r.id,
                 event: selectedEventId,
-                joined_at: today,
-                attended: false,
-                payment: paymentAmount
+                status: r.status
             })
-        });
-    });
+        })
+    );
 
     Promise.all(promises)
-        .then(() => {
+        .then(responses => {
+            if (responses.some(res => !res.ok)) throw new Error("Ошибка при сохранении");
             alert("Покупки успешно добавлены!");
             closePurchasePopup();
             if (typeof fetchEvents === "function") fetchEvents();
