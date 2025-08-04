@@ -307,18 +307,19 @@ function searchResidents() {
             }
 
             filtered.forEach(resident => {
-                const safeName = resident.full_name?.replace(/'/g, "\\'") || "—";
-                const safePhone = resident.phone?.replace(/'/g, "\\'") || "—";
+                const safeName = JSON.stringify(resident.full_name || "—");
+                const safePhone = JSON.stringify(resident.phone || "—");
 
                 const div = document.createElement("div");
                 div.innerHTML = `
-                    ${safeName} (${safePhone})
-                    <button onclick="selectResident(${resident.id}, '${safeName}', '${safePhone}')">Добавить</button>
+                    ${resident.full_name || "—"} (${resident.phone || "—"})
+                    <button onclick="selectResident(${resident.id}, ${safeName}, ${safePhone})">Добавить</button>
                 `;
                 resultsContainer.appendChild(div);
             });
         });
 }
+
 
 
 function selectResident(id, full_name, phone) {
