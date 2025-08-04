@@ -180,31 +180,32 @@
         </div>
     </div>
 
-    <!-- Новый попап: Добавление покупки -->
-<div id="newPurchasePopupOverlay" class="new-popup-overlay hidden">
-    <div class="new-popup">
+<!-- Попап: Добавление покупки (в стиле .popup) -->
+<div id="newPurchasePopupOverlay" class="popup hidden">
+    <div class="popup-content">
+        <span class="close-btn" onclick="closeNewPurchasePopup()">×</span>
         <h2>Добавление покупки</h2>
 
         <div id="newPurchaseStep1">
-            <h3>Шаг 1: Выберите ивент</h3>
-            <div id="newEventButtonsContainer" class="new-buttons-list"></div>
+            <h3 style="margin-bottom: 10px;">Шаг 1: Выберите ивент</h3>
+            <div id="newEventButtonsContainer" class="buttons-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
         </div>
 
-        <div id="newPurchaseStep2" class="hidden">
-            <h3>Шаг 2: Выберите резидентов</h3>
-            <input type="text" id="newResidentSearch" placeholder="Поиск по имени или номеру">
-            <button onclick="newSearchResidents()">Поиск</button>
-            <div id="newResidentResults"></div>
+        <div id="newPurchaseStep2" class="hidden" style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">Шаг 2: Выберите резидентов</h3>
+            <input type="text" id="newResidentSearch" placeholder="Поиск по имени или номеру" style="margin-bottom: 10px; padding: 8px; width: 100%;">
+            <button onclick="newSearchResidents()" style="margin-bottom: 15px;">Поиск</button>
+            <div id="newResidentResults" style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;"></div>
 
-            <h4>Выбранные:</h4>
-            <div id="newSelectedResidents"></div>
+            <h4 style="margin-bottom: 10px;">Выбранные:</h4>
+            <div id="newSelectedResidents" class="new-selected-resident" style="flex-direction: column;"></div>
 
             <button id="newSavePurchaseBtn" onclick="newSavePurchases()" class="hidden">Сохранить</button>
         </div>
-
-        <button onclick="closeNewPurchasePopup()">Закрыть</button>
     </div>
 </div>
+
+
 
 
     <!-- Попап: Участники события -->
