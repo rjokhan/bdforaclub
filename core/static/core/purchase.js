@@ -57,6 +57,7 @@ function renderEventSelection(events) {
         .forEach(event => {
             const btn = document.createElement("button");
             btn.textContent = `${event.title} (${event.date})`;
+            btn.className = "event-button"; // добавляем стиль
             btn.onclick = () => selectEventForPurchase(event.id);
             container.appendChild(btn);
         });
@@ -140,9 +141,9 @@ function renderSelectedResidents() {
         const select = document.createElement("select");
         select.innerHTML = `
             <option value="">Выберите статус</option>
-            <option value="оплачено">Оплачено</option>
-            <option value="забронировано">Забронировано</option>
-            <option value="оплачено частично">Оплачено частично</option>
+            <option value="paid">Оплачено</option>
+            <option value="reserved">Забронировано</option>
+            <option value="partial">Оплачено частично</option>
         `;
         select.onchange = () => {
             selectedResidents[index].status = select.value;
@@ -162,38 +163,16 @@ function checkAllStatusesSelected() {
     document.getElementById("save-purchase-button").style.display = allSelected ? "block" : "none";
 }
 
-function mapStatusToCode(statusText) {
-    switch (statusText) {
-        case "оплачено": return "paid";
-        case "оплачено частично": return "partial";
-        case "забронировано": return "reserved";
-        default: return "reserved";
-    }
-}
-
 function savePurchases() {
-    const selectedResidents = Array.from(document.querySelectorAll("#selected-residents-list [data-id]")).map(div => {
-        return {
-            resident: parseInt(div.getAttribute("data-id")),
-            status: div.querySelector("select").value
-        };
-    });
-
-    const selectedEventId = window.selectedEventId;
-    if (!selectedEventId) {
-        alert("Сначала выберите ивент");
-        return;
-    }
-
     const today = new Date().toISOString().split("T")[0];
 
     const promises = selectedResidents.map(r =>
-        fetch("/api/participants/", {
+        fetch(PARTICIPATIONS_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+                resident: r.id,
                 event: selectedEventId,
-                resident: r.resident,
                 status: r.status,
                 joined_at: today,
                 attended: false,
@@ -205,8 +184,9 @@ function savePurchases() {
     Promise.all(promises)
         .then(responses => {
             if (responses.some(res => !res.ok)) throw new Error("Ошибка при сохранении");
+            alert("Успешно добавлено!");
             closePurchasePopup();
-            fetchEvents();
+            if (typeof fetchEvents === "function") fetchEvents();
         })
         .catch(err => alert(err.message));
 }

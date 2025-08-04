@@ -402,3 +402,6 @@ function addEvent() {
     })
     .catch(err => alert(err.message));
 }
+
+
+btn.className = "event-button";
