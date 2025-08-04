@@ -277,3 +277,5 @@ function savePurchases() {
 }
 
 document.addEventListener("DOMContentLoaded", fetchEvents);
+
+
