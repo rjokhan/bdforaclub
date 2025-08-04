@@ -1,10 +1,11 @@
 const RESIDENTS_API = "/api/residents/";
+const PARTICIPATIONS_API = "/api/participants/";
+const EVENTS_API = "/api/events/";
 
 let selectedEventId = null;
 let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
-
 
 function openPurchasePopup() {
     const overlay = document.getElementById("purchase-popup-overlay");
@@ -161,20 +162,27 @@ function checkAllStatusesSelected() {
     document.getElementById("save-purchase-button").style.display = allSelected ? "block" : "none";
 }
 
+function mapStatusToCode(statusText) {
+    switch (statusText) {
+        case "оплачено": return "paid";
+        case "оплачено частично": return "partial";
+        case "забронировано": return "reserved";
+        default: return "reserved";
+    }
+}
+
 function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
     const promises = selectedResidents.map(r => {
         const statusCode = mapStatusToCode(r.status);
-        const payment =
+        const paymentAmount =
             statusCode === "paid" ? 100000 :
             statusCode === "partial" ? 50000 : 0;
 
-        return fetch("/api/participants/", {
+        return fetch(PARTICIPATIONS_API, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 resident: r.id,
                 event: selectedEventId,
@@ -183,7 +191,7 @@ function savePurchases() {
                 notified: false,
                 came: false,
                 status: statusCode,
-                payment: payment
+                payment: paymentAmount
             })
         });
     });
@@ -191,7 +199,7 @@ function savePurchases() {
     Promise.all(promises)
         .then(responses => {
             if (responses.some(res => !res.ok)) {
-                console.error("Один из ответов:", responses);
+                console.error("Ошибка при сохранении. Ответы:", responses);
                 throw new Error("Ошибка при сохранении");
             }
             alert("Покупки успешно добавлены!");
@@ -199,26 +207,7 @@ function savePurchases() {
             if (typeof fetchEvents === "function") fetchEvents();
         })
         .catch(err => {
-            console.error("Ошибка при сохранении:", err);
+            console.error("Ошибка при сохранении покупок:", err);
             alert("Ошибка при сохранении покупок");
         });
-}
-
-function mapStatusToCode(statusText) {
-    switch (statusText) {
-        case "оплачено": return "paid";
-        case "оплачено частично": return "partial";
-        case "забронировано": return "reserved";
-        default: return "reserved";
-    }
-}
-
-
-function mapStatusToCode(statusText) {
-    switch (statusText) {
-        case "оплачено": return "paid";
-        case "оплачено частично": return "partial";
-        case "забронировано": return "reserved";
-        default: return "reserved";
-    }
 }
