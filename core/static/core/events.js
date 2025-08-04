@@ -277,10 +277,8 @@ function closePurchasePopup() {
 }
 
 function searchResidents() {
-    const query = document.getElementById("resident-search-input").value
-        .trim()
-        .toLowerCase()
-        .normalize();
+    const query = document.getElementById("resident-search-input").value.trim().toLowerCase();
+    console.log("Поисковый запрос:", query);
 
     fetch("/api/residents/")
         .then(res => res.json())
@@ -289,16 +287,20 @@ function searchResidents() {
             resultsContainer.innerHTML = "";
 
             const selected = Array.from(document.querySelectorAll("#selected-residents-list [data-id]"))
-                .map(el => parseInt(el.getAttribute("data-id")));
+                .map(el => Number(el.getAttribute("data-id")))
+                .filter(id => !isNaN(id));
+
+            console.log("Выбранные ID:", selected);
 
             const filtered = data.filter(r => {
-                const fullName = r.full_name ? r.full_name.toLowerCase().normalize() : "";
+                const fullName = (r.full_name || "").toLowerCase();
                 const phone = String(r.phone || "");
-                return (
-                    !selected.includes(r.id) &&
-                    (fullName.includes(query) || phone.includes(query))
-                );
+                const match = fullName.includes(query) || phone.includes(query);
+                const isAlreadySelected = selected.includes(r.id);
+                return match && !isAlreadySelected;
             });
+
+            console.log("Результаты фильтрации:", filtered);
 
             if (filtered.length === 0) {
                 resultsContainer.innerHTML = "<p>Ничего не найдено или уже добавлен.</p>";
@@ -318,6 +320,7 @@ function searchResidents() {
             });
         });
 }
+
 
 function selectResident(id, full_name, phone) {
     const container = document.getElementById("selected-residents-list");
