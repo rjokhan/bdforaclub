@@ -7,18 +7,18 @@ let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
 
-function openNewPurchasePopup() {
-    const overlay = document.getElementById("newPurchasePopupOverlay");
+function openPurchasePopup() {
+    const overlay = document.getElementById("purchase-popup-overlay");
     if (!overlay) return;
 
     overlay.classList.remove("hidden");
 
-    document.getElementById("newPurchaseStep1").classList.remove("hidden");
-    document.getElementById("newPurchaseStep2").classList.add("hidden");
-    document.getElementById("newResidentSearch").value = "";
-    document.getElementById("newResidentResults").innerHTML = "";
-    document.getElementById("newSelectedResidents").innerHTML = "";
-    document.getElementById("newSavePurchaseBtn").classList.add("hidden");
+    document.getElementById("purchase-step-event").style.display = "block";
+    document.getElementById("purchase-step-residents").style.display = "none";
+    document.getElementById("resident-search-input").value = "";
+    document.getElementById("resident-search-results").innerHTML = "";
+    document.getElementById("selected-residents-list").innerHTML = "";
+    document.getElementById("save-purchase-button").classList.add("hidden");
 
     selectedEventId = null;
     selectedResidents = [];
@@ -26,12 +26,12 @@ function openNewPurchasePopup() {
 
     fetch(EVENTS_API)
         .then(res => res.json())
-        .then(renderNewEventButtons)
+        .then(renderEventButtons)
         .catch(() => alert("Ошибка при загрузке событий"));
 }
 
-function closeNewPurchasePopup() {
-    const overlay = document.getElementById("newPurchasePopupOverlay");
+function closePurchasePopup() {
+    const overlay = document.getElementById("purchase-popup-overlay");
     if (!overlay) return;
 
     overlay.classList.add("hidden");
@@ -40,33 +40,34 @@ function closeNewPurchasePopup() {
     selectedResidents = [];
     existingParticipantIds = [];
 
-    document.getElementById("newEventButtonsContainer").innerHTML = "";
-    document.getElementById("newResidentResults").innerHTML = "";
-    document.getElementById("newSelectedResidents").innerHTML = "";
-    document.getElementById("newResidentSearch").value = "";
-    document.getElementById("newSavePurchaseBtn").classList.add("hidden");
+    document.getElementById("event-list-container").innerHTML = "";
+    document.getElementById("resident-search-input").value = "";
+    document.getElementById("resident-search-results").innerHTML = "";
+    document.getElementById("selected-residents-list").innerHTML = "";
+    document.getElementById("save-purchase-button").classList.add("hidden");
 }
 
-function renderNewEventButtons(events) {
-    const container = document.getElementById("newEventButtonsContainer");
+function renderEventButtons(events) {
+    const container = document.getElementById("event-list-container");
     container.innerHTML = "";
 
     events
         .filter(event => !event.is_finished)
         .forEach(event => {
-            const btn = document.createElement("button");
-            btn.className = "new-buttons-list-button";
+            const btn = document.createElement("div");
+            btn.className = "event-button";
             btn.textContent = `${event.title} (${event.date})`;
-            btn.onclick = () => selectNewEvent(event.id);
+            btn.style.cursor = "pointer";
+            btn.onclick = () => selectEvent(event.id);
             container.appendChild(btn);
         });
 }
 
-function selectNewEvent(eventId) {
+function selectEvent(eventId) {
     selectedEventId = eventId;
 
-    document.getElementById("newPurchaseStep1").classList.add("hidden");
-    document.getElementById("newPurchaseStep2").classList.remove("hidden");
+    document.getElementById("purchase-step-event").style.display = "none";
+    document.getElementById("purchase-step-residents").style.display = "block";
 
     Promise.all([
         fetch(RESIDENTS_API).then(res => res.json()),
@@ -81,9 +82,9 @@ function selectNewEvent(eventId) {
     .catch(() => alert("Ошибка при загрузке резидентов или участников"));
 }
 
-function newSearchResidents() {
-    const input = document.getElementById("newResidentSearch").value.toLowerCase();
-    const container = document.getElementById("newResidentResults");
+function searchResidents() {
+    const input = document.getElementById("resident-search-input").value.toLowerCase();
+    const container = document.getElementById("resident-search-results");
     container.innerHTML = "";
 
     const results = allResidents.filter(r =>
@@ -108,7 +109,7 @@ function newSearchResidents() {
         btn.textContent = "➕";
         btn.onclick = () => {
             selectedResidents.push({ ...resident, status: null });
-            newRenderSelectedResidents();
+            renderSelectedResidents();
         };
 
         div.appendChild(label);
@@ -117,13 +118,14 @@ function newSearchResidents() {
     });
 }
 
-function newRenderSelectedResidents() {
-    const container = document.getElementById("newSelectedResidents");
+function renderSelectedResidents() {
+    const container = document.getElementById("selected-residents-list");
     container.innerHTML = "";
 
     selectedResidents.forEach((r, i) => {
         const div = document.createElement("div");
         div.className = "new-selected-resident";
+        div.setAttribute("data-id", r.id);
 
         const label = document.createElement("span");
         label.textContent = `${r.full_name} (${r.phone})`;
@@ -137,7 +139,7 @@ function newRenderSelectedResidents() {
         `;
         select.onchange = () => {
             selectedResidents[i].status = select.value;
-            checkAllNewStatusesSelected();
+            checkStatuses();
         };
 
         div.appendChild(label);
@@ -145,15 +147,15 @@ function newRenderSelectedResidents() {
         container.appendChild(div);
     });
 
-    checkAllNewStatusesSelected();
+    checkStatuses();
 }
 
-function checkAllNewStatusesSelected() {
+function checkStatuses() {
     const allSelected = selectedResidents.length > 0 && selectedResidents.every(r => r.status);
-    document.getElementById("newSavePurchaseBtn").classList.toggle("hidden", !allSelected);
+    document.getElementById("save-purchase-button").classList.toggle("hidden", !allSelected);
 }
 
-function newSavePurchases() {
+function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
     const promises = selectedResidents.map(r =>
@@ -186,7 +188,7 @@ function newSavePurchases() {
             }
 
             alert("Покупки добавлены");
-            closeNewPurchasePopup();
+            closePurchasePopup();
             if (typeof fetchEvents === "function") fetchEvents();
         })
         .catch(err => {
@@ -194,3 +196,10 @@ function newSavePurchases() {
             alert("Ошибка при сохранении");
         });
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("addPurchaseBtn");
+    if (btn) {
+        btn.addEventListener("click", openPurchasePopup);
+    }
+});
