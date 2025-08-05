@@ -9,7 +9,9 @@ let existingParticipantIds = [];
 
 // 👉 Открытие попапа
 function openPurchasePopup() {
-    const popup = document.getElementById("purchase-popup-overlay");
+    const popup = document.getElementById("purchasePopup");
+    if (!popup) return alert("Попап purchasePopup не найден");
+
     popup.classList.remove("hidden");
 
     fetch(EVENTS_API)
@@ -22,6 +24,9 @@ function openPurchasePopup() {
                 const div = document.createElement("div");
                 div.textContent = `${event.title} (${event.date})`;
                 div.style.cursor = "pointer";
+                div.style.padding = "8px";
+                div.style.border = "1px solid #ccc";
+                div.style.borderRadius = "6px";
                 div.onclick = () => {
                     selectedEventId = event.id;
                     document.getElementById("purchase-step-event").style.display = "none";
@@ -36,10 +41,11 @@ function openPurchasePopup() {
 
 // 👉 Закрытие попапа
 function closePurchasePopup() {
-    const popup = document.getElementById("purchase-popup-overlay");
+    const popup = document.getElementById("purchasePopup");
+    if (!popup) return;
+
     popup.classList.add("hidden");
 
-    // Сбросить всё
     selectedEventId = null;
     selectedResidents = [];
     existingParticipantIds = [];
@@ -52,7 +58,7 @@ function closePurchasePopup() {
     document.getElementById("save-purchase-button").classList.add("hidden");
 }
 
-// 👉 Загрузка данных резидентов и участников ивента
+// 👉 Загрузка резидентов и участников
 function loadResidentsAndParticipants() {
     Promise.all([
         fetch(RESIDENTS_API).then(res => res.json()),
@@ -148,7 +154,7 @@ function checkAllStatusesSelected() {
 function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
-    const promises = selectedResidents.map(r =>
+    const requests = selectedResidents.map(r =>
         fetch(PARTICIPANTS_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -167,7 +173,7 @@ function savePurchases() {
         })
     );
 
-    Promise.all(promises)
+    Promise.all(requests)
         .then(responses => {
             const failed = responses.find(r => !r.ok);
             if (failed) {

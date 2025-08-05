@@ -179,30 +179,33 @@
         </div>
     </div>
 
-<!-- Попап: Добавление покупки (старая логика + новый стиль) -->
-<div id="purchase-popup-overlay" class="popup hidden">
-    <div class="popup-content">
-        <span class="close-btn" onclick="closePurchasePopup()">×</span>
-        <h2>Добавление покупки</h2>
+<!-- Попап: Добавление покупки -->
+<div id="purchasePopup" class="popup hidden">
+  <div class="popup-content">
+    <span class="close-btn" onclick="closePurchasePopup()">×</span>
+    <h2>Добавление покупки</h2>
 
-        <div id="purchase-step-event">
-            <h3 style="margin-bottom: 10px;">Шаг 1: Выберите ивент</h3>
-            <div id="event-list-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
-        </div>
-
-        <div id="purchase-step-residents" class="hidden" style="margin-top: 20px;">
-            <h3 style="margin-bottom: 10px;">Шаг 2: Выберите резидентов</h3>
-            <input type="text" id="resident-search-input" placeholder="Поиск по имени или номеру" style="margin-bottom: 10px; padding: 8px; width: 100%;">
-            <button onclick="searchResidents()" style="margin-bottom: 15px;">Поиск</button>
-            <div id="resident-search-results" style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;"></div>
-
-            <h4 style="margin-bottom: 10px;">Выбранные:</h4>
-            <div id="selected-residents-list" style="display: flex; flex-direction: column;"></div>
-
-            <button id="save-purchase-button" onclick="savePurchases()" class="hidden">Сохранить</button>
-        </div>
+    <!-- Шаг 1: Выбор события -->
+    <div id="purchase-step-event">
+      <h3>Шаг 1: Выберите ивент</h3>
+      <div id="event-list-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
     </div>
+
+    <!-- Шаг 2: Поиск и добавление резидентов -->
+    <div id="purchase-step-residents" class="hidden" style="margin-top: 20px;">
+      <h3>Шаг 2: Выберите резидентов</h3>
+      <input type="text" id="resident-search-input" placeholder="Поиск по имени или номеру" style="margin-bottom: 10px; padding: 8px; width: 100%;">
+      <button onclick="searchResidents()" style="margin-bottom: 15px;">Поиск</button>
+      <div id="resident-search-results" style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;"></div>
+
+      <h4 style="margin-bottom: 10px;">Выбранные:</h4>
+      <div id="selected-residents-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+
+      <button id="save-purchase-button" onclick="savePurchases()" class="hidden">Сохранить</button>
+    </div>
+  </div>
 </div>
+
 
 
 

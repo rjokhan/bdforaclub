@@ -3,6 +3,9 @@ const PARTICIPANTS_API = "/api/participants/";
 const RESIDENTS_API = "/api/residents/";
 
 let selectedEventId = null;
+let allResidents = [];
+let selectedResidents = [];
+let existingParticipantIds = [];
 
 function fetchEvents() {
     Promise.all([
@@ -188,43 +191,66 @@ function closeParticipantsPopup() {
 function openEventPopup() {
     document.getElementById("event-popup-overlay").style.display = "flex";
 }
+
 function closeEventPopup() {
     document.getElementById("event-popup-overlay").style.display = "none";
 }
 
+// ✅ Открытие попапа покупки
 function openPurchasePopup() {
-    const popup = document.getElementById("purchase-popup-overlay");
+    const popup = document.getElementById("purchasePopup");
+    if (!popup) {
+        alert("Попап 'purchasePopup' не найден");
+        return;
+    }
+
     popup.classList.remove("hidden");
 
-    fetch("/api/events/")
+    document.getElementById("purchase-step-event").style.display = "block";
+    document.getElementById("purchase-step-residents").style.display = "none";
+    document.getElementById("event-list-container").innerHTML = "";
+
+    fetch(EVENTS_API)
         .then(res => res.json())
         .then(events => {
             const container = document.getElementById("event-list-container");
-            container.innerHTML = "";
-
             events.forEach(event => {
                 const div = document.createElement("div");
                 div.textContent = `${event.title} (${event.date})`;
                 div.style.cursor = "pointer";
+                div.style.padding = "8px";
+                div.style.border = "1px solid #ccc";
+                div.style.borderRadius = "6px";
                 div.onclick = () => {
-                    window.selectedEventId = event.id;
+                    selectedEventId = event.id;
                     document.getElementById("purchase-step-event").style.display = "none";
                     document.getElementById("purchase-step-residents").style.display = "block";
+                    loadResidentsAndParticipants();
                 };
                 container.appendChild(div);
             });
-        });
+        })
+        .catch(() => alert("Ошибка при загрузке ивентов"));
 }
 
+// ✅ Закрытие попапа покупки
 function closePurchasePopup() {
-    const popup = document.getElementById("purchase-popup-overlay");
+    const popup = document.getElementById("purchasePopup");
+    if (!popup) return;
+
     popup.classList.add("hidden");
+
+    selectedEventId = null;
+    allResidents = [];
+    selectedResidents = [];
+    existingParticipantIds = [];
 
     document.getElementById("purchase-step-event").style.display = "block";
     document.getElementById("purchase-step-residents").style.display = "none";
-    document.getElementById("selected-residents-list").innerHTML = "";
     document.getElementById("resident-search-input").value = "";
     document.getElementById("resident-search-results").innerHTML = "";
+    document.getElementById("selected-residents-list").innerHTML = "";
+    document.getElementById("save-purchase-button").classList.add("hidden");
 }
 
 document.addEventListener("DOMContentLoaded", fetchEvents);
