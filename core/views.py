@@ -75,15 +75,11 @@ class ParticipationViewSet(viewsets.ModelViewSet):
         logger.info("Получены данные: %s", data)
 
         try:
-            # Массив объектов (bulk)
             if isinstance(data, list):
                 created = []
                 for item in data:
-                    if Participation.objects.filter(
-                        event_id=item["event"], resident_id=item["resident"]
-                    ).exists():
-                        continue  # уже участвует — не создаём повторно
-
+                    if Participation.objects.filter(event_id=item["event"], resident_id=item["resident"]).exists():
+                        ontinue
                     serializer = self.get_serializer(data=item)
                     serializer.is_valid(raise_exception=True)
                     serializer.save()
@@ -91,14 +87,9 @@ class ParticipationViewSet(viewsets.ModelViewSet):
 
                 return Response(created, status=status.HTTP_201_CREATED)
 
-            # Один объект
-            if Participation.objects.filter(
-                event_id=data["event"], resident_id=data["resident"]
-            ).exists():
-                return Response(
-                    {"detail": "Этот резидент уже участвует в событии."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            # одиночный объект
+            if Participation.objects.filter(event_id=data["event"], resident_id=data["resident"]).exists():
+                return Response({"detail": "Этот резидент уже участвует в событии."}, status=status.HTTP_400_BAD_REQUEST)
 
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
@@ -107,7 +98,4 @@ class ParticipationViewSet(viewsets.ModelViewSet):
 
         except Exception as e:
             logger.exception("Ошибка при создании Participation")
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

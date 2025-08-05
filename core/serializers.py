@@ -50,7 +50,6 @@ class EventSerializer(serializers.ModelSerializer):
 
 
 class ParticipationSerializer(serializers.ModelSerializer):
-    resident = serializers.PrimaryKeyRelatedField(queryset=Resident.objects.all())
     full_name = serializers.CharField(source='resident.full_name', read_only=True)
     phone = serializers.CharField(source='resident.phone', read_only=True)
 
@@ -71,6 +70,6 @@ class ParticipationSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        if 'joined_at' not in validated_data:
+        if not validated_data.get('joined_at'):
             validated_data['joined_at'] = timezone.now().date()
         return super().create(validated_data)
