@@ -3,6 +3,7 @@ const PARTICIPANTS_API = "/api/participants/";
 const EVENTS_API = "/api/events/";
 
 let selectedEventId = null;
+let selectedEvent = null;
 let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
@@ -29,6 +30,7 @@ function openPurchasePopup() {
                 div.style.borderRadius = "6px";
                 div.onclick = () => {
                     selectedEventId = event.id;
+                    selectedEvent = event;
                     document.getElementById("purchase-step-event").style.display = "none";
                     document.getElementById("purchase-step-residents").style.display = "block";
                     loadResidentsAndParticipants();
@@ -47,6 +49,7 @@ function closePurchasePopup() {
     popup.classList.add("hidden");
 
     selectedEventId = null;
+    selectedEvent = null;
     selectedResidents = [];
     existingParticipantIds = [];
 
@@ -68,7 +71,7 @@ function loadResidentsAndParticipants() {
         allResidents = residents;
         existingParticipantIds = participants
             .filter(p => p.event === selectedEventId)
-            .map(p => p.resident);
+            .map(p => typeof p.resident === "object" ? p.resident.id : p.resident);
     })
     .catch(() => alert("Ошибка при загрузке резидентов или участников"));
 }
@@ -131,6 +134,7 @@ function renderSelectedResidents() {
             <option value="reserved">Забронировано</option>
             <option value="partial">Оплачено частично</option>
         `;
+        select.value = r.status || "";
         select.onchange = () => {
             selectedResidents[i].status = select.value;
             checkAllStatusesSelected();
@@ -154,6 +158,8 @@ function checkAllStatusesSelected() {
 function savePurchases() {
     const today = new Date().toISOString().split("T")[0];
 
+    console.log("Отправка данных:", selectedResidents);
+
     const requests = selectedResidents.map(r =>
         fetch(PARTICIPANTS_API, {
             method: "POST",
@@ -164,8 +170,8 @@ function savePurchases() {
                 status: r.status,
                 joined_at: today,
                 payment:
-                    r.status === "paid" ? 100000 :
-                    r.status === "partial" ? 50000 : 0,
+                    r.status === "paid" ? selectedEvent.price :
+                    r.status === "partial" ? selectedEvent.price / 2 : 0,
                 attended: false,
                 notified: false,
                 came: false
