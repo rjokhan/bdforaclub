@@ -143,50 +143,6 @@ function openEventPopupWithParticipants(eventId) {
         });
 }
 
-
-
-
-function addEvent() {
-    const title = document.getElementById("eventNameInput").value.trim();
-    const date = document.getElementById("eventDateInput").value;
-    const seats = parseInt(document.getElementById("eventSeatsInput").value);
-    const price = parseFloat(document.getElementById("eventPriceInput").value);
-
-    if (!title || !date || isNaN(seats) || isNaN(price)) {
-        alert("Пожалуйста, заполните все поля корректно");
-        return;
-    }
-
-    fetch(EVENTS_API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            title,
-            date,
-            seats,
-            price
-        })
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Ошибка при создании события");
-        return res.json();
-    })
-    .then(() => {
-        closeEventPopup();
-        fetchEvents();
-    })
-    .catch(err => alert(err.message));
-}
-
-function closeEventPopup() {
-    document.getElementById("event-popup-overlay").style.display = "none";
-    document.getElementById("eventNameInput").value = "";
-    document.getElementById("eventDateInput").value = "";
-    document.getElementById("eventSeatsInput").value = "";
-    document.getElementById("eventPriceInput").value = "";
-}
-
-
 function getStatusLabel(code) {
     if (code === "paid") return "Оплачено";
     if (code === "partial") return "Частично";
@@ -243,22 +199,20 @@ function closeEventPopup() {
 // ✅ Открытие попапа покупки
 function openPurchasePopup() {
     const popup = document.getElementById("purchasePopup");
-    if (!popup) {
-        alert("Попап 'purchasePopup' не найден");
-        return;
-    }
+    if (!popup) return alert("Попап 'purchasePopup' не найден");
 
     popup.classList.remove("hidden");
 
-    document.getElementById("purchase-step-event").classList.add("hidden");
-    document.getElementById("purchase-step-residents").classList.remove("hidden");
+    // Показать только шаг 1
+    document.getElementById("purchase-step-event").style.display = "block";
+    document.getElementById("purchase-step-residents").style.display = "none";
 
-    document.getElementById("event-list-container").innerHTML = "";
+    const container = document.getElementById("event-list-container");
+    container.innerHTML = "";
 
     fetch(EVENTS_API)
         .then(res => res.json())
         .then(events => {
-            const container = document.getElementById("event-list-container");
             events.forEach(event => {
                 const div = document.createElement("div");
                 div.textContent = `${event.title} (${event.date})`;
