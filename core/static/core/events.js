@@ -228,5 +228,3 @@ function closePurchasePopup() {
 }
 
 document.addEventListener("DOMContentLoaded", fetchEvents);
-
-
