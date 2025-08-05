@@ -71,6 +71,7 @@ class ParticipationViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         data = request.data
 
+        # ✅ Обработка списка объектов
         if isinstance(data, list):
             created = []
 
@@ -80,10 +81,10 @@ class ParticipationViewSet(viewsets.ModelViewSet):
                     resident_id=item["resident"],
                     defaults={
                         "status": item.get("status", "reserved"),
-                        "payment": 0,
-                        "attended": False,
-                        "notified": False,
-                        "came": False,
+                        "payment": item.get("payment", 0),
+                        "attended": item.get("attended", False),
+                        "notified": item.get("notified", False),
+                        "came": item.get("came", False),
                     }
                 )
                 serializer = self.get_serializer(obj)
@@ -91,4 +92,18 @@ class ParticipationViewSet(viewsets.ModelViewSet):
 
             return Response(created, status=status.HTTP_201_CREATED)
 
-        return super().create(request, *args, **kwargs)
+        # ✅ Обработка одного объекта
+        item = data
+        obj, _ = Participation.objects.update_or_create(
+            event_id=item["event"],
+            resident_id=item["resident"],
+            defaults={
+                "status": item.get("status", "reserved"),
+                "payment": item.get("payment", 0),
+                "attended": item.get("attended", False),
+                "notified": item.get("notified", False),
+                "came": item.get("came", False),
+            }
+        )
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
