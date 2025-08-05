@@ -250,8 +250,9 @@ function openPurchasePopup() {
 
     popup.classList.remove("hidden");
 
-    document.getElementById("purchase-step-event").style.display = "block";
-    document.getElementById("purchase-step-residents").style.display = "none";
+    document.getElementById("purchase-step-event").classList.add("hidden");
+    document.getElementById("purchase-step-residents").classList.remove("hidden");
+
     document.getElementById("event-list-container").innerHTML = "";
 
     fetch(EVENTS_API)
