@@ -69,19 +69,26 @@ class ParticipationViewSet(viewsets.ModelViewSet):
         return queryset
 
     def create(self, request, *args, **kwargs):
-        # Поддержка пакетного создания
-        data = request.data
-        if isinstance(data, list):
-            created = []
-            for item in data:
-                if Participation.objects.filter(
-                    event_id=item["event"], resident_id=item["resident"]
-                ).exists():
-                    continue  # уже участвует
-                serializer = self.get_serializer(data=item)
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
-                created.append(serializer.data)
-            return Response(created, status=status.HTTP_201_CREATED)
-        else:
-            return super().create(request, *args, **kwargs)
+    data = request.data
+
+    if isinstance(data, list):
+        created = []
+
+        for item in data:
+            obj, _ = Participation.objects.update_or_create(
+                event_id=item["event"],
+                resident_id=item["resident"],
+                defaults={
+                    "status": item.get("status", "reserved"),
+                    "payment": 0,
+                    "attended": False,
+                    "notified": False,
+                    "came": False,
+                }
+            )
+            serializer = self.get_serializer(obj)
+            created.append(serializer.data)
+
+        return Response(created, status=status.HTTP_201_CREATED)
+
+    return super().create(request, *args, **kwargs)
