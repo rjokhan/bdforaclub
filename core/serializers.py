@@ -1,27 +1,75 @@
 from rest_framework import serializers
 from .models import Resident, Event, Participation
+from django.utils import timezone
 
 
 class ResidentSerializer(serializers.ModelSerializer):
+    total = serializers.SerializerMethodField()
+    total_events = serializers.SerializerMethodField()
+    attended_events = serializers.SerializerMethodField()
+    active_events = serializers.SerializerMethodField()
+
     class Meta:
         model = Resident
-        fields = '__all__'
+        fields = [
+            'id',
+            'full_name',
+            'phone',
+            'active_count',
+            'completed_count',
+            'total',
+            'total_events',
+            'attended_events',
+            'active_events',
+        ]
+
+    def get_total(self, obj):
+        return obj.total()
+
+    def get_total_events(self, obj):
+        return obj.participations.count()
+
+    def get_attended_events(self, obj):
+        return obj.participations.filter(event__is_finished=True).count()
+
+    def get_active_events(self, obj):
+        return obj.participations.filter(event__is_finished=False).count()
 
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
-        fields = '__all__'
+        fields = [
+            'id',
+            'title',
+            'date',
+            'price',
+            'seats',
+            'is_finished'
+        ]
 
 
 class ParticipationSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='resident.full_name', read_only=True)
+    phone = serializers.CharField(source='resident.phone', read_only=True)
+
     class Meta:
         model = Participation
-        fields = ['id', 'event', 'resident', 'status']  # Используем 'status', как на фронте
+        fields = [
+            'id',
+            'resident',
+            'full_name',
+            'phone',
+            'event',
+            'joined_at',
+            'attended',
+            'payment',
+            'status',
+            'notified',
+            'came',
+        ]
 
-    def validate(self, data):
-        required_fields = ['event', 'resident', 'status']
-        for field in required_fields:
-            if field not in data:
-                raise serializers.ValidationError({field: 'This field is required.'})
-        return data
+    def create(self, validated_data):
+        if 'joined_at' not in validated_data:
+            validated_data['joined_at'] = timezone.now().date()
+        return super().create(validated_data)
