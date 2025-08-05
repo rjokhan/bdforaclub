@@ -50,6 +50,7 @@ class EventSerializer(serializers.ModelSerializer):
 
 
 class ParticipationSerializer(serializers.ModelSerializer):
+    resident = serializers.PrimaryKeyRelatedField(queryset=Resident.objects.all())
     full_name = serializers.CharField(source='resident.full_name', read_only=True)
     phone = serializers.CharField(source='resident.phone', read_only=True)
 

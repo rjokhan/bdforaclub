@@ -8,6 +8,8 @@ let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
 
+
+
 // 👉 Открытие попапа
 function openPurchasePopup() {
     const popup = document.getElementById("purchasePopup");
@@ -71,7 +73,11 @@ function loadResidentsAndParticipants() {
         allResidents = residents;
         existingParticipantIds = participants
             .filter(p => p.event === selectedEventId)
-            .map(p => typeof p.resident === "object" ? p.resident.id : p.resident);
+            .map(p => {
+                if (!p.resident) return null;
+                return typeof p.resident === "object" ? p.resident.id : p.resident;
+            }).filter(id => id !== null)
+
     })
     .catch(() => alert("Ошибка при загрузке резидентов или участников"));
 }
