@@ -123,93 +123,6 @@
         .hidden {
             display: none !important;
         }
-
-        .purchase-modal {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-.purchase-modal.hidden {
-  display: none;
-}
-.purchase-modal-content {
-  background: white;
-  padding: 32px;
-  border-radius: 16px;
-  width: 80vw;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-.event-button {
-  display: block;
-  margin: 8px 0;
-  padding: 10px;
-  border: 1px solid #ccc;
-  background: #f3f3f3;
-  cursor: pointer;
-}
-
-.purchase-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.purchase-modal.hidden {
-  display: none;
-}
-
-.purchase-modal-content {
-  background: #fff;
-  padding: 32px;
-  border-radius: 16px;
-  width: 80vw;
-  max-height: 80vh;
-  overflow-y: auto;
-  color: #1f1f1f;
-}
-
-.event-button,
-.resident-add-button,
-.status-select {
-  padding: 10px 14px;
-  margin-top: 8px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  background: #f5f5f5;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-}
-
-.resident-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 8px;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-}
-
-.resident-info {
-  font-size: 16px;
-}
-
-.status-select {
-  width: 160px;
-}
-
-
     </style>
 </head>
 <body>
@@ -222,7 +135,9 @@
     <h1>Список событий</h1>
     <div style="display: flex; gap: 10px; margin-bottom: 20px;">
         <button onclick="openEventPopup()">Добавить событие</button>
-        <button onclick="openPurchaseModal()">Добавить покупку</button>
+        <button onclick="openPurchasePopup()">Добавить покупку</button>
+
+
     </div>
 
     <table id="eventsTable">
@@ -267,14 +182,28 @@
     </div>
 
 <!-- Попап: Добавление покупки (старая логика + новый стиль) -->
-<div id="purchaseModal" class="purchase-modal hidden">
-  <div class="purchase-modal-content">
-    <h1 id="purchaseStepTitle">Выберите ивент</h1>
-    <div id="purchaseStepBody"></div>
-    <div id="purchaseModalActions">
-      <button onclick="closePurchaseModal()">Отмена</button>
+<div id="purchase-popup-overlay" class="popup hidden">
+    <div class="popup-content">
+        <span class="close-btn" onclick="closePurchasePopup()">×</span>
+        <h2>Добавление покупки</h2>
+
+        <div id="purchase-step-event">
+            <h3 style="margin-bottom: 10px;">Шаг 1: Выберите ивент</h3>
+            <div id="event-list-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
+
+        <div id="purchase-step-residents" class="hidden" style="margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">Шаг 2: Выберите резидентов</h3>
+            <input type="text" id="resident-search-input" placeholder="Поиск по имени или номеру" style="margin-bottom: 10px; padding: 8px; width: 100%;">
+            <button onclick="searchResidents()" style="margin-bottom: 15px;">Поиск</button>
+            <div id="resident-search-results" style="max-height: 150px; overflow-y: auto; margin-bottom: 15px;"></div>
+
+            <h4 style="margin-bottom: 10px;">Выбранные:</h4>
+            <div id="selected-residents-list" style="display: flex; flex-direction: column;"></div>
+
+            <button id="save-purchase-button" onclick="savePurchases()" class="hidden">Сохранить</button>
+        </div>
     </div>
-  </div>
 </div>
 
 
@@ -289,163 +218,5 @@
             <div id="participantsList" class="events-scroll"></div>
         </div>
     </div>
-
-
-    <script>
-const EVENTS_API_URL = '/api/events/';
-const RESIDENTS_API_URL = '/api/residents/';
-const PARTICIPATION_API_URL = '/api/participants/';
-
-let selectedEventId = null;
-let addedResidents = [];
-
-function openPurchaseModal() {
-  document.getElementById("purchaseModal").classList.remove("hidden");
-  loadEventSelection();
-}
-
-function closePurchaseModal() {
-  document.getElementById("purchaseModal").classList.add("hidden");
-  selectedEventId = null;
-  addedResidents = [];
-  document.getElementById("purchaseStepTitle").textContent = "";
-  document.getElementById("purchaseStepBody").innerHTML = "";
-}
-
-function loadEventSelection() {
-  document.getElementById("purchaseStepTitle").textContent = "Выберите ивент";
-  document.getElementById("purchaseModalActions").innerHTML = `<button onclick="closePurchaseModal()">Отмена</button>`;
-
-  fetch(EVENTS_API_URL)
-    .then(res => res.json())
-    .then(events => {
-      const body = document.getElementById("purchaseStepBody");
-      body.innerHTML = "";
-      events.forEach(event => {
-        const btn = document.createElement("button");
-        btn.textContent = `${event.title} — ${event.date}`;
-        btn.className = "event-button";
-        btn.onclick = () => {
-          selectedEventId = event.id;
-          loadResidentSelection();
-        };
-        body.appendChild(btn);
-      });
-    });
-}
-
-function loadResidentSelection() {
-  document.getElementById("purchaseStepTitle").textContent = "Выберите резидента";
-  const body = document.getElementById("purchaseStepBody");
-  body.innerHTML = `
-    <input type="text" id="residentSearchInput" placeholder="Поиск по ФИО или номеру..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 10px;">
-    <div id="residentSearchResults"></div>
-    <h3 style="margin-top: 20px;">Добавленные резиденты:</h3>
-    <div id="addedResidentsList"></div>
-  `;
-
-  document.getElementById("purchaseModalActions").innerHTML = `
-    <button onclick="submitPurchaseList()">Сохранить</button>
-    <button onclick="closePurchaseModal()">Отмена</button>
-  `;
-
-  const input = document.getElementById("residentSearchInput");
-  input.addEventListener("input", () => {
-    const query = input.value.toLowerCase();
-    if (query.length < 2) return;
-    fetch(RESIDENTS_API_URL)
-      .then(res => res.json())
-      .then(data => {
-        const results = data.filter(r =>
-          (r.full_name + r.phone_number).toLowerCase().includes(query) &&
-          !addedResidents.find(ar => ar.id === r.id)
-        );
-        showResidentSearchResults(results);
-      });
-  });
-}
-
-function showResidentSearchResults(results) {
-  const container = document.getElementById("residentSearchResults");
-  container.innerHTML = "";
-
-  results.forEach(resident => {
-    const btn = document.createElement("button");
-    btn.className = "resident-add-button";
-    btn.textContent = `${resident.full_name} (${resident.phone_number})`;
-    btn.onclick = () => {
-      addedResidents.push({ ...resident, status: "оплачено" });
-      updateAddedResidentsUI();
-      container.innerHTML = "";
-      document.getElementById("residentSearchInput").value = "";
-    };
-    container.appendChild(btn);
-  });
-}
-
-function updateAddedResidentsUI() {
-  const list = document.getElementById("addedResidentsList");
-  list.innerHTML = "";
-
-  addedResidents.forEach(resident => {
-    const div = document.createElement("div");
-    div.className = "resident-item";
-
-    const info = document.createElement("div");
-    info.className = "resident-info";
-    info.textContent = `${resident.full_name} (${resident.phone_number})`;
-
-    const select = document.createElement("select");
-    select.className = "status-select";
-    ["оплачено", "забронировано", "оплачено частично"].forEach(status => {
-      const opt = document.createElement("option");
-      opt.value = status;
-      opt.textContent = status;
-      if (resident.status === status) opt.selected = true;
-      select.appendChild(opt);
-    });
-
-    select.onchange = () => {
-      resident.status = select.value;
-    };
-
-    div.appendChild(info);
-    div.appendChild(select);
-    list.appendChild(div);
-  });
-}
-
-function submitPurchaseList() {
-  if (!selectedEventId || addedResidents.length === 0) {
-    alert("Выберите ивент и хотя бы одного резидента.");
-    return;
-  }
-
-  const payload = addedResidents.map(r => ({
-    event: selectedEventId,
-    resident: r.id,
-    status: r.status,
-  }));
-
-  fetch(PARTICIPATION_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  })
-    .then(res => {
-      if (res.ok) {
-        alert("Покупки успешно сохранены");
-        closePurchaseModal();
-        // если нужно, перезагрузи список
-      } else {
-        alert("Ошибка при сохранении");
-      }
-    })
-    .catch(() => alert("Сетевая ошибка"));
-}
-</script>
-
 </body>
 </html>
