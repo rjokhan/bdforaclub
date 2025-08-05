@@ -28,7 +28,10 @@ function renderEvents(events, participations) {
     });
 
     events.forEach((event, index) => {
-        const bought = participations.filter(p => p.event === event.id).length;
+        const bought = participations.filter(
+            p => p.event === event.id && p.status === "paid"
+        ).length;
+
         const free = event.seats - bought;
 
         const tr = document.createElement("tr");
