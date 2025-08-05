@@ -196,16 +196,14 @@ function closeEventPopup() {
     document.getElementById("event-popup-overlay").style.display = "none";
 }
 
-// ✅ Открытие попапа покупки
+// --- Добавить покупку ---
+
 function openPurchasePopup() {
     const popup = document.getElementById("purchasePopup");
-    if (!popup) return alert("Попап 'purchasePopup' не найден");
-
     popup.classList.remove("hidden");
 
-    // Показать только шаг 1
-    document.getElementById("purchase-step-event").style.display = "block";
-    document.getElementById("purchase-step-residents").style.display = "none";
+    document.getElementById("purchase-step-event").classList.remove("hidden");
+    document.getElementById("purchase-step-residents").classList.add("hidden");
 
     const container = document.getElementById("event-list-container");
     container.innerHTML = "";
@@ -216,27 +214,20 @@ function openPurchasePopup() {
             events.forEach(event => {
                 const div = document.createElement("div");
                 div.textContent = `${event.title} (${event.date})`;
-                div.style.cursor = "pointer";
-                div.style.padding = "8px";
-                div.style.border = "1px solid #ccc";
-                div.style.borderRadius = "6px";
+                div.classList.add("event-button");
                 div.onclick = () => {
                     selectedEventId = event.id;
-                    document.getElementById("purchase-step-event").style.display = "none";
-                    document.getElementById("purchase-step-residents").style.display = "block";
+                    document.getElementById("purchase-step-event").classList.add("hidden");
+                    document.getElementById("purchase-step-residents").classList.remove("hidden");
                     loadResidentsAndParticipants();
                 };
                 container.appendChild(div);
             });
-        })
-        .catch(() => alert("Ошибка при загрузке ивентов"));
+        });
 }
 
-// ✅ Закрытие попапа покупки
 function closePurchasePopup() {
     const popup = document.getElementById("purchasePopup");
-    if (!popup) return;
-
     popup.classList.add("hidden");
 
     selectedEventId = null;
@@ -244,12 +235,101 @@ function closePurchasePopup() {
     selectedResidents = [];
     existingParticipantIds = [];
 
-    document.getElementById("purchase-step-event").style.display = "block";
-    document.getElementById("purchase-step-residents").style.display = "none";
     document.getElementById("resident-search-input").value = "";
     document.getElementById("resident-search-results").innerHTML = "";
     document.getElementById("selected-residents-list").innerHTML = "";
     document.getElementById("save-purchase-button").classList.add("hidden");
 }
 
+function loadResidentsAndParticipants() {
+    fetch(RESIDENTS_API)
+        .then(res => res.json())
+        .then(residents => {
+            allResidents = residents;
+            return fetch(`${PARTICIPANTS_API}?event=${selectedEventId}`);
+        })
+        .then(res => res.json())
+        .then(participants => {
+            existingParticipantIds = participants.map(p => p.resident);
+        });
+}
+
+function searchResidents() {
+    const query = document.getElementById("resident-search-input").value.toLowerCase();
+    const results = allResidents.filter(r =>
+        (r.full_name + r.phone).toLowerCase().includes(query) &&
+        !selectedResidents.find(sel => sel.id === r.id) &&
+        !existingParticipantIds.includes(r.id)
+    );
+
+    const container = document.getElementById("resident-search-results");
+    container.innerHTML = "";
+
+    results.forEach(r => {
+        const div = document.createElement("div");
+        div.classList.add("resident-result");
+        div.innerHTML = `${r.full_name} <small>(${r.phone})</small>`;
+        const addBtn = document.createElement("button");
+        addBtn.textContent = "Добавить";
+        addBtn.onclick = () => addResidentToSelection(r);
+        div.appendChild(addBtn);
+        container.appendChild(div);
+    });
+}
+
+function addResidentToSelection(resident) {
+    selectedResidents.push(resident);
+    renderSelectedResidents();
+    document.getElementById("save-purchase-button").classList.remove("hidden");
+    document.getElementById("resident-search-input").value = "";
+    document.getElementById("resident-search-results").innerHTML = "";
+}
+
+function renderSelectedResidents() {
+    const container = document.getElementById("selected-residents-list");
+    container.innerHTML = "";
+
+    selectedResidents.forEach((r, index) => {
+        const div = document.createElement("div");
+        div.classList.add("resident-item");
+        div.innerHTML = `
+            <span>${r.full_name} (${r.phone})</span>
+            <select data-index="${index}">
+                <option value="paid">Оплачено</option>
+                <option value="reserved">Забронировано</option>
+                <option value="partial">Частично</option>
+            </select>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function savePurchase() {
+    const payload = selectedResidents.map((r, i) => {
+        const status = document.querySelector(`select[data-index="${i}"]`).value;
+        return {
+            event: selectedEventId,
+            resident: r.id,
+            status: status
+        };
+    });
+
+    Promise.all(payload.map(p =>
+        fetch(PARTICIPANTS_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(p)
+        })
+    ))
+    .then(() => {
+        alert("Участники добавлены!");
+        closePurchasePopup();
+        fetchEvents();
+    })
+    .catch(() => alert("Ошибка при сохранении"));
+}
+
+// Слушатели
+document.getElementById("resident-search-input").addEventListener("input", searchResidents);
+document.getElementById("save-purchase-button").addEventListener("click", savePurchase);
 document.addEventListener("DOMContentLoaded", fetchEvents);
