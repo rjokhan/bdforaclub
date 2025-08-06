@@ -403,20 +403,56 @@ function deleteParticipation(id) {
     yesBtn.id = "confirm-delete-yes";
     noBtn.id = "confirm-delete-no";
 
-    yesBtn.onclick = () => {
+yesBtn.onclick = () => {
     fetch(`${PARTICIPANTS_API}${id}/`, { method: "DELETE" })
         .then(res => {
             if (!res.ok) throw new Error("Ошибка при удалении");
+
             popup.classList.add("hidden");
 
-            // Обновляем список участников после удаления:
-            openEventPopupWithParticipants(selectedEventId);
+            // Явно обновляем участников
+            fetch(`/api/participants/?event=${selectedEventId}`)
+                .then(res => res.json())
+                .then(participants => {
+                    const container = document.getElementById("participantsList");
+                    container.innerHTML = "";
+
+                    if (participants.length === 0) {
+                        container.innerHTML = "<p>Нет участников</p>";
+                        return;
+                    }
+
+                    participants.forEach(p => {
+                        const statusClass = getStatusColor(p.status);
+                        const statusLabel = getStatusLabel(p.status);
+
+                        const div = document.createElement("div");
+                        div.classList.add("participant-row");
+
+                        div.innerHTML = `
+                            <div><strong>${p.full_name}</strong><br><small>${p.phone}</small></div>
+                            <div class="status-chip ${statusClass}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
+                            <div class="toggle-group">
+                                <button class="${p.notified ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'notified', true)">✅</button>
+                                <button class="${!p.notified ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'notified', false)">❌</button>
+                            </div>
+                            <div class="toggle-group">
+                                <button class="${p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', true)">✅</button>
+                                <button class="${!p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', false)">❌</button>
+                            </div>
+                            <div><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
+                        `;
+
+                        container.appendChild(div);
+                    });
+                });
         })
         .catch(err => {
             popup.classList.add("hidden");
             alert("Ошибка при удалении: " + err.message);
         });
 };
+
 
 
     noBtn.onclick = () => {
