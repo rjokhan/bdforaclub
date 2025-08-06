@@ -106,21 +106,21 @@ function openEventPopupWithParticipants(eventId) {
                 return;
             }
 
-            // 👇 Заголовок таблицы
+            // 🧱 Заголовок
             const header = document.createElement("div");
             header.classList.add("participant-row");
             header.style.fontWeight = "bold";
             header.innerHTML = `
-                <div>№</div>
+                <div style="width: 30px;">№</div>
                 <div>ФИО</div>
                 <div>Статус</div>
                 <div>Уведомлён</div>
                 <div>Пришёл</div>
-                <div>Удалить</div>
+                <div></div> <!-- пустой заголовок для корзины -->
             `;
             container.appendChild(header);
 
-            // 👇 Строки участников
+            // 👤 Участники
             data.forEach((p, index) => {
                 const div = document.createElement("div");
                 div.classList.add("participant-row");
@@ -129,7 +129,7 @@ function openEventPopupWithParticipants(eventId) {
                 const statusLabel = getStatusLabel(p.status);
 
                 div.innerHTML = `
-                    <div>${index + 1}</div>
+                    <div style="width: 30px;">${index + 1}</div>
                     <div><strong>${p.full_name}</strong><br><small>${p.phone}</small></div>
                     <div class="status-chip ${statusClass}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
                     <div class="toggle-group">
