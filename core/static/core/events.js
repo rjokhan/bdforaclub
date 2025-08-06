@@ -109,14 +109,18 @@ function openEventPopupWithParticipants(eventId) {
             // 🧱 Заголовок
             const header = document.createElement("div");
             header.classList.add("participant-row");
-            header.style.fontWeight = "bold";
+            header.style.fontWeight = "600";
+            header.style.backgroundColor = "#f2f2f2"; // серый фон
+            header.style.padding = "6px 12px"; // уменьшенная высота
+            header.style.fontSize = "14px"; // тоньше шрифт
+
             header.innerHTML = `
                 <div style="width: 30px;">№</div>
                 <div>ФИО</div>
                 <div>Статус</div>
                 <div>Уведомлён</div>
                 <div>Пришёл</div>
-                <div></div> <!-- пустой заголовок для корзины -->
+                <div></div>
             `;
             container.appendChild(header);
 
