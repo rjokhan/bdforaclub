@@ -349,8 +349,7 @@ function showStatusOptions(chipElement, participantId, currentStatus) {
     const container = document.createElement("div");
     container.style.display = "flex";
     container.style.flexDirection = "column";
-    container.style.position = "relative";
-    container.style.zIndex = "1000";
+    container.style.gap = "4px";
 
     const statuses = [
         { value: "paid", label: "Оплачено", class: "green" },
@@ -362,7 +361,6 @@ function showStatusOptions(chipElement, participantId, currentStatus) {
         const option = document.createElement("div");
         option.textContent = status.label;
         option.className = `status-chip ${status.class}`;
-        option.style.marginTop = "4px";
         option.style.cursor = "pointer";
 
         option.onclick = () => {
@@ -373,8 +371,14 @@ function showStatusOptions(chipElement, participantId, currentStatus) {
             })
             .then(res => {
                 if (!res.ok) throw new Error("Ошибка при обновлении статуса");
-                fetchEvents();
-                openEventPopupWithParticipants(selectedEventId);
+
+                // Создаём новый чип с выбранным статусом
+                const newChip = document.createElement("div");
+                newChip.textContent = status.label;
+                newChip.className = `status-chip ${status.class}`;
+                newChip.onclick = () => showStatusOptions(newChip, participantId, status.value);
+
+                container.replaceWith(newChip);
             })
             .catch(err => alert("Ошибка: " + err.message));
         };
