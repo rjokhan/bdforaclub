@@ -106,7 +106,7 @@ function openEventPopupWithParticipants(eventId) {
                 return;
             }
 
-            // 🔳 Шапка таблицы
+            // 🧱 Header
             const header = document.createElement("div");
             header.classList.add("participant-row");
             header.style.fontWeight = "600";
@@ -124,7 +124,7 @@ function openEventPopupWithParticipants(eventId) {
             `;
             container.appendChild(header);
 
-            // 👤 Участники
+            // 👤 Rows
             data.forEach((p, index) => {
                 const div = document.createElement("div");
                 div.classList.add("participant-row");
