@@ -3,9 +3,16 @@ const PARTICIPANTS_API = "/api/participants/";
 const RESIDENTS_API = "/api/residents/";
 
 let selectedEventId = null;
+let selectedEvent = null;
 let allResidents = [];
 let selectedResidents = [];
 let existingParticipantIds = [];
+
+document.addEventListener("DOMContentLoaded", () => {
+    fetchEvents();
+    document.getElementById("resident-search-input").addEventListener("input", searchResidents);
+    document.getElementById("save-purchase-button").addEventListener("click", savePurchase);
+});
 
 function fetchEvents() {
     Promise.all([
@@ -28,20 +35,15 @@ function renderEvents(events, participations) {
     });
 
     events.forEach((event, index) => {
-        const bought = participations.filter(
-            p => p.event === event.id && p.status === "paid"
-        ).length;
-
+        const bought = participations.filter(p => p.event === event.id && p.status === "paid").length;
         const free = event.seats - bought;
 
         const tr = document.createElement("tr");
-        if (event.is_finished) {
-            tr.style.backgroundColor = "rgba(255, 0, 0, 0.15)";
-        }
+        if (event.is_finished) tr.style.backgroundColor = "rgba(255, 0, 0, 0.15)";
 
         tr.innerHTML = `
             <td>${index + 1}</td>
-            <td class="event-name">${event.title}</td>
+            <td>${event.title}</td>
             <td>${event.date}</td>
             <td>${event.price}</td>
             <td>${event.seats}</td>
@@ -51,20 +53,17 @@ function renderEvents(events, participations) {
             <td><button class="status-btn">${event.is_finished ? "Активировать" : "Завершить"}</button></td>
         `;
 
-        tr.querySelector(".delete-btn").addEventListener("click", (e) => {
+        tr.querySelector(".delete-btn").onclick = e => {
             e.stopPropagation();
             deleteEvent(event.id);
-        });
+        };
 
-        tr.querySelector(".status-btn").addEventListener("click", (e) => {
+        tr.querySelector(".status-btn").onclick = e => {
             e.stopPropagation();
             toggleStatus(event.id, event.is_finished);
-        });
+        };
 
-        tr.addEventListener("click", () => {
-            openEventPopupWithParticipants(event.id);
-        });
-
+        tr.onclick = () => openEventPopupWithParticipants(event.id);
         tbody.appendChild(tr);
     });
 }
@@ -80,8 +79,8 @@ function deleteEvent(id) {
 }
 
 function toggleStatus(id, isFinished) {
-    const confirmMsg = isFinished ? "Желаете вернуть ивент в статус активно?" : "Завершить ивент?";
-    if (!confirm(confirmMsg)) return;
+    const msg = isFinished ? "Вернуть ивент в активный?" : "Завершить ивент?";
+    if (!confirm(msg)) return;
 
     fetch(`${EVENTS_API}${id}/`, {
         method: "PATCH",
@@ -100,34 +99,18 @@ function openEventPopupWithParticipants(eventId) {
         .then(res => res.json())
         .then(data => {
             const container = document.getElementById("participantsList");
-            container.innerHTML = "";
-
-            if (data.length === 0) {
-                container.innerHTML = "<p>Нет участников</p>";
-                return;
-            }
-
-            const header = document.createElement("div");
-            header.classList.add("participant-header");
-            header.innerHTML = `
-                <div>ФИО</div>
-                <div>Статус</div>
-                <div>Уведомлён</div>
-                <div>Пришёл</div>
-                <div>Удалить</div>
-            `;
-            container.appendChild(header);
+            container.innerHTML = data.length === 0 ? "<p>Нет участников</p>" : "";
 
             data.forEach(p => {
                 const div = document.createElement("div");
                 div.classList.add("participant-row");
 
+                const statusClass = getStatusColor(p.status);
                 const statusLabel = getStatusLabel(p.status);
-                const statusColor = getStatusColor(p.status);
 
                 div.innerHTML = `
-                    <div><strong>${p.full_name || "—"}</strong><br><small>${p.phone || "—"}</small></div>
-                    <div class="status-chip ${statusColor}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
+                    <div><strong>${p.full_name}</strong><br><small>${p.phone}</small></div>
+                    <div class="status-chip ${statusClass}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
                     <div class="toggle-group">
                         <button class="${p.notified ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'notified', true)">✅</button>
                         <button class="${!p.notified ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'notified', false)">❌</button>
@@ -138,7 +121,6 @@ function openEventPopupWithParticipants(eventId) {
                     </div>
                     <div><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
                 `;
-
                 container.appendChild(div);
             });
 
@@ -146,10 +128,8 @@ function openEventPopupWithParticipants(eventId) {
         });
 }
 
-function getStatusLabel(code) {
-    if (code === "paid") return "Оплачено";
-    if (code === "partial") return "Частично";
-    return "Забронировано";
+function closeParticipantsPopup() {
+    document.getElementById("eventParticipantsPopup").classList.add("hidden");
 }
 
 function getStatusColor(code) {
@@ -158,37 +138,25 @@ function getStatusColor(code) {
     return "red";
 }
 
-function toggleState(button, participationId, field, value) {
-    const parent = button.parentElement;
-    const buttons = parent.querySelectorAll("button");
+function getStatusLabel(code) {
+    if (code === "paid") return "Оплачено";
+    if (code === "partial") return "Частично";
+    return "Забронировано";
+}
 
-    fetch(`${PARTICIPANTS_API}${participationId}/`, {
+function toggleState(button, id, field, value) {
+    fetch(`${PARTICIPANTS_API}${id}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: value })
     })
     .then(res => {
-        if (!res.ok) throw new Error("Ошибка при обновлении");
-        buttons.forEach(btn => btn.classList.remove("active"));
+        if (!res.ok) throw new Error("Ошибка обновления");
+        const group = button.parentElement;
+        group.querySelectorAll("button").forEach(btn => btn.classList.remove("active"));
         button.classList.add("active");
     })
     .catch(err => alert(err.message));
-}
-
-function deleteParticipation(id) {
-    if (!confirm("Удалить этого участника?")) return;
-
-    fetch(`${PARTICIPANTS_API}${id}/`, { method: "DELETE" })
-        .then(res => {
-            if (!res.ok) throw new Error("Ошибка при удалении");
-            fetchEvents();
-            closeParticipantsPopup();
-        })
-        .catch(err => alert(err.message));
-}
-
-function closeParticipantsPopup() {
-    document.getElementById("eventParticipantsPopup").classList.add("hidden");
 }
 
 function openEventPopup() {
@@ -199,8 +167,31 @@ function closeEventPopup() {
     document.getElementById("event-popup-overlay").style.display = "none";
 }
 
-// --- Добавить покупку ---
+function addEvent() {
+    const title = document.getElementById("eventNameInput").value;
+    const date = document.getElementById("eventDateInput").value;
+    const seats = +document.getElementById("eventSeatsInput").value;
+    const price = +document.getElementById("eventPriceInput").value;
 
+    if (!title || !date || !seats || !price) {
+        alert("Заполните все поля");
+        return;
+    }
+
+    fetch(EVENTS_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, date, seats, price })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Ошибка при добавлении события");
+        closeEventPopup();
+        fetchEvents();
+    })
+    .catch(err => alert(err.message));
+}
+
+// --- Покупки ---
 function openPurchasePopup() {
     const popup = document.getElementById("purchasePopup");
     popup.classList.remove("hidden");
@@ -208,18 +199,18 @@ function openPurchasePopup() {
     document.getElementById("purchase-step-event").classList.remove("hidden");
     document.getElementById("purchase-step-residents").classList.add("hidden");
 
-    const container = document.getElementById("event-list-container");
-    container.innerHTML = "";
-
     fetch(EVENTS_API)
         .then(res => res.json())
         .then(events => {
+            const container = document.getElementById("event-list-container");
+            container.innerHTML = "";
             events.forEach(event => {
                 const div = document.createElement("div");
                 div.textContent = `${event.title} (${event.date})`;
-                div.classList.add("event-button");
+                div.className = "event-button";
                 div.onclick = () => {
                     selectedEventId = event.id;
+                    selectedEvent = event;
                     document.getElementById("purchase-step-event").classList.add("hidden");
                     document.getElementById("purchase-step-residents").classList.remove("hidden");
                     loadResidentsAndParticipants();
@@ -230,10 +221,9 @@ function openPurchasePopup() {
 }
 
 function closePurchasePopup() {
-    const popup = document.getElementById("purchasePopup");
-    popup.classList.add("hidden");
-
+    document.getElementById("purchasePopup").classList.add("hidden");
     selectedEventId = null;
+    selectedEvent = null;
     allResidents = [];
     selectedResidents = [];
     existingParticipantIds = [];
@@ -245,16 +235,14 @@ function closePurchasePopup() {
 }
 
 function loadResidentsAndParticipants() {
-    fetch(RESIDENTS_API)
-        .then(res => res.json())
-        .then(residents => {
-            allResidents = residents;
-            return fetch(`${PARTICIPANTS_API}?event=${selectedEventId}`);
-        })
-        .then(res => res.json())
-        .then(participants => {
-            existingParticipantIds = participants.map(p => p.resident);
-        });
+    Promise.all([
+        fetch(RESIDENTS_API).then(res => res.json()),
+        fetch(`${PARTICIPANTS_API}?event=${selectedEventId}`).then(res => res.json())
+    ])
+    .then(([residents, participants]) => {
+        allResidents = residents;
+        existingParticipantIds = participants.map(p => (typeof p.resident === "object" ? p.resident.id : p.resident));
+    });
 }
 
 function searchResidents() {
@@ -281,9 +269,8 @@ function searchResidents() {
 }
 
 function addResidentToSelection(resident) {
-    selectedResidents.push(resident);
+    selectedResidents.push({ ...resident, status: "paid" });
     renderSelectedResidents();
-    document.getElementById("save-purchase-button").classList.remove("hidden");
     document.getElementById("resident-search-input").value = "";
     document.getElementById("resident-search-results").innerHTML = "";
 }
@@ -305,6 +292,8 @@ function renderSelectedResidents() {
         `;
         container.appendChild(div);
     });
+
+    document.getElementById("save-purchase-button").classList.remove("hidden");
 }
 
 function savePurchase() {
@@ -331,8 +320,3 @@ function savePurchase() {
     })
     .catch(() => alert("Ошибка при сохранении"));
 }
-
-// Слушатели
-document.getElementById("resident-search-input").addEventListener("input", searchResidents);
-document.getElementById("save-purchase-button").addEventListener("click", savePurchase);
-document.addEventListener("DOMContentLoaded", fetchEvents);
