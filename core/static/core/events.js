@@ -344,3 +344,30 @@ function savePurchase() {
         alert("❌ Ошибка при сохранении: " + err.message);
     });
 }
+
+function showStatusOptions(chipElement, participantId, currentStatus) {
+    const select = document.createElement("select");
+
+    select.innerHTML = `
+        <option value="paid" ${currentStatus === "paid" ? "selected" : ""}>Оплачено</option>
+        <option value="partial" ${currentStatus === "partial" ? "selected" : ""}>Частично</option>
+        <option value="reserved" ${currentStatus === "reserved" ? "selected" : ""}>Забронировано</option>
+    `;
+
+    select.onchange = () => {
+        const newStatus = select.value;
+        fetch(`${PARTICIPANTS_API}${participantId}/`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(res => {
+            if (!res.ok) throw new Error("Ошибка при обновлении статуса");
+            fetchEvents();
+        })
+        .catch(err => alert("Ошибка: " + err.message));
+    };
+
+    chipElement.replaceWith(select);
+    select.focus();
+}
