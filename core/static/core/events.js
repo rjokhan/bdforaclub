@@ -99,9 +99,29 @@ function openEventPopupWithParticipants(eventId) {
         .then(res => res.json())
         .then(data => {
             const container = document.getElementById("participantsList");
-            container.innerHTML = data.length === 0 ? "<p>Нет участников</p>" : "";
+            container.innerHTML = "";
 
-            data.forEach(p => {
+            if (data.length === 0) {
+                container.innerHTML = "<p>Нет участников</p>";
+                return;
+            }
+
+            // 👇 Заголовок таблицы
+            const header = document.createElement("div");
+            header.classList.add("participant-row");
+            header.style.fontWeight = "bold";
+            header.innerHTML = `
+                <div>№</div>
+                <div>ФИО</div>
+                <div>Статус</div>
+                <div>Уведомлён</div>
+                <div>Пришёл</div>
+                <div>Удалить</div>
+            `;
+            container.appendChild(header);
+
+            // 👇 Строки участников
+            data.forEach((p, index) => {
                 const div = document.createElement("div");
                 div.classList.add("participant-row");
 
@@ -109,6 +129,7 @@ function openEventPopupWithParticipants(eventId) {
                 const statusLabel = getStatusLabel(p.status);
 
                 div.innerHTML = `
+                    <div>${index + 1}</div>
                     <div><strong>${p.full_name}</strong><br><small>${p.phone}</small></div>
                     <div class="status-chip ${statusClass}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
                     <div class="toggle-group">
@@ -127,6 +148,7 @@ function openEventPopupWithParticipants(eventId) {
             document.getElementById("eventParticipantsPopup").classList.remove("hidden");
         });
 }
+
 
 function closeParticipantsPopup() {
     document.getElementById("eventParticipantsPopup").classList.add("hidden");
