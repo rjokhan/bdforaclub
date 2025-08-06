@@ -297,12 +297,25 @@ function renderSelectedResidents() {
 }
 
 function savePurchase() {
+    const today = new Date().toISOString().split("T")[0];
+
     const payload = selectedResidents.map((r, i) => {
         const status = document.querySelector(`select[data-index="${i}"]`).value;
+
+        const payment =
+            status === "paid" ? selectedEvent.price :
+            status === "partial" ? selectedEvent.price / 2 :
+            0;
+
         return {
             event: selectedEventId,
             resident: r.id,
-            status: status
+            status: status,
+            joined_at: today,
+            payment: payment,
+            attended: false,
+            notified: false,
+            came: false
         };
     });
 
