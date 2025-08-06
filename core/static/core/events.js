@@ -106,7 +106,7 @@ function openEventPopupWithParticipants(eventId) {
                 return;
             }
 
-            // 🧱 Заголовок
+            // 🔳 Шапка таблицы
             const header = document.createElement("div");
             header.classList.add("participant-row");
             header.style.fontWeight = "600";
@@ -115,12 +115,12 @@ function openEventPopupWithParticipants(eventId) {
             header.style.fontSize = "14px";
 
             header.innerHTML = `
-                <div style="width: 40px;">№</div>
+                <div style="width: 40px; flex-shrink: 0;">№</div>
                 <div>ФИО</div>
                 <div>Статус</div>
                 <div>Уведомлён</div>
                 <div>Пришёл</div>
-                <div></div> <!-- Для кнопки удаления -->
+                <div style="width: 60px;"></div>
             `;
             container.appendChild(header);
 
@@ -133,7 +133,7 @@ function openEventPopupWithParticipants(eventId) {
                 const statusLabel = getStatusLabel(p.status);
 
                 div.innerHTML = `
-                    <div style="width: 40px;">${index + 1}</div>
+                    <div style="width: 40px; flex-shrink: 0;">${index + 1}</div>
                     <div><strong>${p.full_name}</strong><br><small>${p.phone}</small></div>
                     <div class="status-chip ${statusClass}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
                     <div class="toggle-group">
@@ -144,7 +144,9 @@ function openEventPopupWithParticipants(eventId) {
                         <button class="${p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', true)">✅</button>
                         <button class="${!p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', false)">❌</button>
                     </div>
-                    <div style="text-align: center;"><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
+                    <div style="display: flex; justify-content: center; align-items: center; width: 60px;">
+                        <button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button>
+                    </div>
                 `;
                 container.appendChild(div);
             });
