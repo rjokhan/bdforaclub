@@ -110,17 +110,17 @@ function openEventPopupWithParticipants(eventId) {
             const header = document.createElement("div");
             header.classList.add("participant-row");
             header.style.fontWeight = "600";
-            header.style.backgroundColor = "#f2f2f2"; // серый фон
-            header.style.padding = "6px 12px"; // уменьшенная высота
-            header.style.fontSize = "14px"; // тоньше шрифт
+            header.style.backgroundColor = "#f2f2f2";
+            header.style.padding = "6px 12px";
+            header.style.fontSize = "14px";
 
             header.innerHTML = `
-                <div style="width: 30px;">№</div>
+                <div style="width: 40px;">№</div>
                 <div>ФИО</div>
                 <div>Статус</div>
                 <div>Уведомлён</div>
                 <div>Пришёл</div>
-                <div></div>
+                <div></div> <!-- Для кнопки удаления -->
             `;
             container.appendChild(header);
 
@@ -133,7 +133,7 @@ function openEventPopupWithParticipants(eventId) {
                 const statusLabel = getStatusLabel(p.status);
 
                 div.innerHTML = `
-                    <div style="width: 30px;">${index + 1}</div>
+                    <div style="width: 40px;">${index + 1}</div>
                     <div><strong>${p.full_name}</strong><br><small>${p.phone}</small></div>
                     <div class="status-chip ${statusClass}" onclick="showStatusOptions(this, ${p.id}, '${p.status}')">${statusLabel}</div>
                     <div class="toggle-group">
@@ -144,7 +144,7 @@ function openEventPopupWithParticipants(eventId) {
                         <button class="${p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', true)">✅</button>
                         <button class="${!p.came ? "active" : ""}" onclick="toggleState(this, ${p.id}, 'came', false)">❌</button>
                     </div>
-                    <div><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
+                    <div style="text-align: center;"><button class="delete-btn" onclick="deleteParticipation(${p.id})">🗑️</button></div>
                 `;
                 container.appendChild(div);
             });
