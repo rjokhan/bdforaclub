@@ -388,3 +388,38 @@ function showStatusOptions(chipElement, participantId, currentStatus) {
 
     chipElement.replaceWith(container);
 }
+
+function deleteParticipation(id) {
+    const popup = document.getElementById("confirm-delete-participant-popup");
+    popup.classList.remove("hidden");
+
+    // Заменяем кнопки для очистки старых обработчиков
+    const yesBtnOld = document.getElementById("confirm-delete-yes");
+    const noBtnOld = document.getElementById("confirm-delete-no");
+
+    const yesBtn = yesBtnOld.cloneNode(true);
+    const noBtn = noBtnOld.cloneNode(true);
+
+    yesBtn.id = "confirm-delete-yes";
+    noBtn.id = "confirm-delete-no";
+
+    yesBtn.onclick = () => {
+        fetch(`${PARTICIPANTS_API}${id}/`, { method: "DELETE" })
+            .then(res => {
+                if (!res.ok) throw new Error("Ошибка при удалении");
+                popup.classList.add("hidden");
+                openEventPopupWithParticipants(selectedEventId); // обновим участников
+            })
+            .catch(err => {
+                popup.classList.add("hidden");
+                alert("Ошибка: " + err.message);
+            });
+    };
+
+    noBtn.onclick = () => {
+        popup.classList.add("hidden");
+    };
+
+    yesBtnOld.replaceWith(yesBtn);
+    noBtnOld.replaceWith(noBtn);
+}
