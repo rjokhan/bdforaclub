@@ -404,17 +404,20 @@ function deleteParticipation(id) {
     noBtn.id = "confirm-delete-no";
 
     yesBtn.onclick = () => {
-        fetch(`${PARTICIPANTS_API}${id}/`, { method: "DELETE" })
-            .then(res => {
-                if (!res.ok) throw new Error("Ошибка при удалении");
-                popup.classList.add("hidden");
-                openEventPopupWithParticipants(selectedEventId); // обновим участников
-            })
-            .catch(err => {
-                popup.classList.add("hidden");
-                alert("Ошибка: " + err.message);
-            });
-    };
+    fetch(`${PARTICIPANTS_API}${id}/`, { method: "DELETE" })
+        .then(res => {
+            if (!res.ok) throw new Error("Ошибка при удалении");
+            popup.classList.add("hidden");
+
+            // Обновляем список участников после удаления:
+            openEventPopupWithParticipants(selectedEventId);
+        })
+        .catch(err => {
+            popup.classList.add("hidden");
+            alert("Ошибка при удалении: " + err.message);
+        });
+};
+
 
     noBtn.onclick = () => {
         popup.classList.add("hidden");
