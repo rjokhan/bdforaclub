@@ -346,28 +346,41 @@ function savePurchase() {
 }
 
 function showStatusOptions(chipElement, participantId, currentStatus) {
-    const select = document.createElement("select");
+    const container = document.createElement("div");
+    container.style.display = "flex";
+    container.style.flexDirection = "column";
+    container.style.position = "relative";
+    container.style.zIndex = "1000";
 
-    select.innerHTML = `
-        <option value="paid" ${currentStatus === "paid" ? "selected" : ""}>Оплачено</option>
-        <option value="partial" ${currentStatus === "partial" ? "selected" : ""}>Частично</option>
-        <option value="reserved" ${currentStatus === "reserved" ? "selected" : ""}>Забронировано</option>
-    `;
+    const statuses = [
+        { value: "paid", label: "Оплачено", class: "green" },
+        { value: "partial", label: "Частично", class: "yellow" },
+        { value: "reserved", label: "Забронировано", class: "red" }
+    ];
 
-    select.onchange = () => {
-        const newStatus = select.value;
-        fetch(`${PARTICIPANTS_API}${participantId}/`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: newStatus })
-        })
-        .then(res => {
-            if (!res.ok) throw new Error("Ошибка при обновлении статуса");
-            fetchEvents();
-        })
-        .catch(err => alert("Ошибка: " + err.message));
-    };
+    statuses.forEach(status => {
+        const option = document.createElement("div");
+        option.textContent = status.label;
+        option.className = `status-chip ${status.class}`;
+        option.style.marginTop = "4px";
+        option.style.cursor = "pointer";
 
-    chipElement.replaceWith(select);
-    select.focus();
+        option.onclick = () => {
+            fetch(`${PARTICIPANTS_API}${participantId}/`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: status.value })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Ошибка при обновлении статуса");
+                fetchEvents();
+                openEventPopupWithParticipants(selectedEventId);
+            })
+            .catch(err => alert("Ошибка: " + err.message));
+        };
+
+        container.appendChild(option);
+    });
+
+    chipElement.replaceWith(container);
 }
