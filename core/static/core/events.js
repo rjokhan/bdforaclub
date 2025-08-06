@@ -312,11 +312,22 @@ function savePurchase() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(p)
         })
+        .then(res => {
+            if (!res.ok) {
+                return res.json().then(data => {
+                    throw new Error(JSON.stringify(data));
+                });
+            }
+            return res;
+        })
     ))
     .then(() => {
-        alert("Участники добавлены!");
+        alert("✅ Участники добавлены!");
         closePurchasePopup();
         fetchEvents();
     })
-    .catch(() => alert("Ошибка при сохранении"));
+    .catch(err => {
+        console.error("Ошибка при сохранении участников:", err);
+        alert("❌ Ошибка при сохранении: " + err.message);
+    });
 }
