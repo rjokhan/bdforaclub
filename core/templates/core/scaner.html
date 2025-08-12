@@ -244,43 +244,51 @@
       torchBtn.textContent = torchOn ? 'Фонарик выкл' : 'Фонарик';
     }
 
-    async function handleDecoded(text){
-      if (!text) return;
-      stopScan(); // предотвращаем повторные считывания
+    async function handleDecoded(text) {
+  if (!text) return;
+  stopScan();
 
-      let payload;
-      try { payload = JSON.parse(text); }
-      catch { showERR('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
+  let payload;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    showERR('QR не содержит валидный JSON');
+    setStatus('QR не JSON', false);
+    return;
+  }
 
-      if (!payload.hash){ showERR('Отсутствует hash'); setStatus('Неверный формат QR', false); return; }
+  // удаляем hash
+  if ('hash' in payload) {
+    delete payload.hash;
+  }
 
-      setStatus('Проверяем по API…');
-      try{
-        const res = await fetch(API_URL, {
-          method:'POST',
-          headers:{ 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
+  setStatus('Проверяем по API…');
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
 
-        if (res.ok && (data.valid === true || data.status === 'ok')){
-          showOK({
-            full_name: data.full_name || data.user_name,
-            phone: data.phone,
-            event: data.event_title,
-            amount: data.amount_text || data.amount,
-            booking_id: data.booking_id ?? payload.transaction_id
-          });
-          setStatus('QR подтверждён', true);
-        } else {
-          showERR(data.reason || data.message || 'код не действителен');
-          setStatus('QR не подтверждён', false);
-        }
-      } catch(e){
-        showERR('Ошибка сети');
-        setStatus('Ошибка запроса: ' + e.message, false);
-      }
+    if (res.ok && (data.valid === true || data.status === 'ok')) {
+      showOK({
+        full_name: data.full_name || data.user_name,
+        phone: data.phone,
+        event: data.event_title,
+        amount: data.amount_text || data.amount,
+        booking_id: data.booking_id ?? payload.transaction_id
+      });
+      setStatus('QR подтверждён', true);
+    } else {
+      showERR(data.reason || data.message || 'код не действителен');
+      setStatus('QR не подтверждён', false);
     }
+  } catch (e) {
+    showERR('Ошибка сети');
+    setStatus('Ошибка запроса: ' + e.message, false);
+  }
+}
 
     async function startScan(){
       if (scanning) return;
