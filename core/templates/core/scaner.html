@@ -4,13 +4,289 @@
 <head>
   <meta charset="UTF-8">
   <title>СКАНЕР</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="{% static 'core/base.css' %}">
+  <style>
+    /* --- ДОБАВЛЕНО: оформление сканера, не трогает ваш base.css --- */
+    body { margin:0; }
+    .scanner-page {
+      position: relative;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 16px 32px;
+      gap: 12px;
+    }
+    .phone-frame {
+      width: min(420px, 92vw);
+      aspect-ratio: 9/19.5;
+      border-radius: 28px;
+      background: #2b2b2b;
+      box-shadow: 0 16px 50px rgba(0,0,0,.35);
+      position: relative;
+      overflow: hidden;
+      border: 8px solid #3a3a3a;
+    }
+    .notch {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      width: 42%; height: 22px; background: #141414; border-radius: 16px;
+      z-index: 5;
+    }
+    video#preview {
+      position:absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+      background:#000;
+      filter: brightness(0.98);
+    }
+    .overlay {
+      position:absolute; inset:0; display:grid; place-items:center; z-index:3;
+      color:#fff; font-family: Inter, system-ui, -apple-system, Arial;
+      text-align:center;
+    }
+    .qr-frame {
+      position: relative; width: 70%; aspect-ratio: 1/1; max-width: 320px;
+      border: 3px solid rgba(255,255,255,0.85);
+      border-radius: 12px;
+      box-shadow: 0 0 0 200vmax rgba(0,0,0,.35) inset;
+    }
+    .hint {
+      position: absolute; top: -46px; left: 50%; transform: translateX(-50%);
+      font-size: 13px; letter-spacing: .5px; text-transform: uppercase;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+      white-space: nowrap;
+    }
+    .scanline {
+      position:absolute; left: 6px; right: 6px; height: 2px; top: 10%;
+      background: rgba(82,255,144,.95);
+      box-shadow: 0 0 12px rgba(82,255,144,.9), 0 0 24px rgba(82,255,144,.7);
+      border-radius: 2px; animation: sweep 2.2s linear infinite;
+    }
+    @keyframes sweep { 
+      0% { top: 10%; } 
+      100% { top: calc(90% - 2px); } 
+    }
+
+    .controls {
+      width: min(420px, 92vw);
+      display:flex; gap:8px; justify-content:center; margin-top:10px;
+    }
+    .btn {
+      flex: 1; padding: 12px 14px; border-radius: 10px; border:1px solid #d7d7d7;
+      background:#fff; color:#222; font-weight:600; cursor:pointer;
+    }
+    .btn.primary { background:#be0036; border-color:#be0036; color:#fff; }
+    .btn.dark { background:#3b3b3b; color:#fff; border-color:#3b3b3b; }
+    .status {
+      width:min(420px,92vw); text-align:center; color:#666; font-size:13px; margin-top:4px;
+    }
+
+    /* Карточка результата (как на макете) */
+    .result-card {
+      width: min(420px, 92vw);
+      background:#fff; color:#111; border-radius: 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.22);
+      padding: 16px; margin-top: 12px; display:none;
+      font-family: Inter, system-ui, -apple-system, Arial;
+    }
+    .badge {
+      display:inline-block; width:100%; text-align:center; font-weight:800;
+      padding: 12px 10px; border-radius: 10px; margin-bottom: 12px;
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .badge.ok { background:#d6f5e3; color:#0a7a34; border:1px solid #bde8cf; }
+    .badge.err { background:#ffd7d7; color:#a40020; border:1px solid #f3b2b2; }
+    .kv { font-size:14px; line-height:1.6; }
+    .kv b { display:inline-block; min-width:108px; color:#444; }
+    .back-row { display:flex; justify-content:center; margin-top: 14px; }
+    .back { padding: 10px 16px; border-radius: 10px; border:1px solid #444; background:#4b4b4b; color:#fff; font-weight:700; }
+    /* --- КОНЕЦ добавленного оформления --- */
+  </style>
 </head>
 <body>
-    <div class="vertical-waves">
-        <div class="wave"></div>
-        <div class="wave"></div>
-        <div class="wave"></div>
+  <div class="scanner-page">
+    <!-- ваш фон оставляем -->
+    <div class="vertical-waves" aria-hidden="true">
+      <div class="wave"></div><div class="wave"></div><div class="wave"></div>
     </div>
+
+    <!-- “телефон” с видео и рамкой -->
+    <div class="phone-frame">
+      <div class="notch"></div>
+      <video id="preview" playsinline muted></video>
+      <div class="overlay">
+        <div class="qr-frame" aria-label="Рамка для сканирования">
+          <div class="hint">НАВЕДИТЕ QR КОД В РАМКУ</div>
+          <div class="scanline"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn" class="btn primary">Включить сканер</button>
+      <button id="torchBtn" class="btn">Фонарик</button>
+      <button id="stopBtn" class="btn">Выключить</button>
+    </div>
+    <div id="status" class="status">Камера выключена.</div>
+
+    <!-- Карточка результата -->
+    <div id="resultCard" class="result-card">
+      <div id="resultBadge" class="badge">…</div>
+      <div id="resultBody" class="kv"></div>
+      <div class="back-row"><button id="backBtn" class="back">НАЗАД</button></div>
+    </div>
+  </div>
+
+  <!-- Фолбэк библиотека для QR -->
+  <script src="https://unpkg.com/@zxing/browser@latest"></script>
+  <script>
+    const API_URL = "/api/qr/resolve/"; // ← ПОДСТАВЬТЕ ВАШ эндпоинт
+
+    const video = document.getElementById('preview');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn  = document.getElementById('stopBtn');
+    const torchBtn = document.getElementById('torchBtn');
+    const statusEl = document.getElementById('status');
+
+    const card     = document.getElementById('resultCard');
+    const badge    = document.getElementById('resultBadge');
+    const bodyEl   = document.getElementById('resultBody');
+    const backBtn  = document.getElementById('backBtn');
+
+    let stream = null, track = null, scanning = false, torchOn = false, stopFallback = null;
+
+    function setStatus(msg, ok=null){
+      statusEl.textContent = msg;
+      statusEl.style.color = ok===true ? '#0a7a34' : ok===false ? '#a40020' : '#666';
+    }
+
+    function showCardOk(data){
+      badge.className = 'badge ok';
+      badge.textContent = 'ПОДТВЕРЖДЕНО!';
+      bodyEl.innerHTML = [
+        data.full_name ? `<div><b>Резидент:</b> ${data.full_name}</div>` : '',
+        data.phone ? `<div><b>Номер:</b> ${data.phone}</div>` : '',
+        data.event ? `<div><b>Ивент:</b> ${data.event}</div>` : '',
+        data.amount ? `<div><b>Сумма оплаты:</b> ${data.amount}</div>` : '',
+        data.booking_id ? `<div><b>ID брони:</b> ${data.booking_id}</div>` : ''
+      ].join('');
+      card.style.display = 'block';
+      navigator.vibrate?.(80);
+    }
+
+    function showCardErr(reason){
+      badge.className = 'badge err';
+      badge.textContent = 'НЕ ПОДТВЕРЖДЕНО!';
+      bodyEl.innerHTML = `<div><b>Причина ошибки:</b> ${reason || 'неизвестно'}</div>`;
+      card.style.display = 'block';
+      navigator.vibrate?.([60,40,60]);
+    }
+
+    function hideCard(){ card.style.display = 'none'; }
+
+    async function startCamera(){
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      track = stream.getVideoTracks()[0];
+    }
+
+    async function toggleTorch(){
+      if (!track) return setStatus('Фонарик недоступен (камера выключена)');
+      const caps = track.getCapabilities?.();
+      if (!caps || !caps.torch) return setStatus('Фонарик не поддерживается на этом устройстве');
+      await track.applyConstraints({ advanced:[{ torch: !torchOn }] });
+      torchOn = !torchOn;
+      torchBtn.textContent = torchOn ? 'Фонарик выкл' : 'Фонарик';
+    }
+
+    function stopScan(){
+      scanning = false;
+      if (stopFallback) { try{ stopFallback(); }catch{} stopFallback = null; }
+      if (track) { track.stop(); track = null; }
+      if (stream) { stream.getTracks().forEach(t=>t.stop()); stream = null; }
+      video.srcObject = null;
+      setStatus('Камера выключена.');
+    }
+
+    async function handleDecoded(text){
+      if (!text) return;
+      stopScan(); // не считываем повторно
+      let payload;
+      try { payload = JSON.parse(text); } 
+      catch { showCardErr('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
+
+      // Мини-валидация
+      if (!payload.hash) { showCardErr('Отсутствует hash'); setStatus('Неверный формат QR', false); return; }
+
+      setStatus('Проверяем по API…');
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && (data.valid === true || data.status === 'ok')) {
+          showCardOk({
+            full_name: data.full_name || data.user_name,
+            phone: data.phone,
+            event: data.event_title,
+            amount: data.amount_text || data.amount,
+            booking_id: data.booking_id || payload.transaction_id
+          });
+          setStatus('QR подтверждён', true);
+        } else {
+          showCardErr(data.reason || data.message || 'код не действителен');
+          setStatus('QR не подтверждён', false);
+        }
+      } catch (e) {
+        showCardErr('Ошибка сети');
+        setStatus('Ошибка запроса: ' + e.message, false);
+      }
+    }
+
+    async function startScan(){
+      if (scanning) return;
+      hideCard();
+      await startCamera();
+      scanning = true;
+      setStatus('Сканирование… Наведите QR в рамку');
+
+      // 1) Пытаемся нативный BarcodeDetector
+      if ('BarcodeDetector' in window) {
+        try {
+          const det = new BarcodeDetector({ formats:['qr_code'] });
+          const loop = async ()=>{
+            if (!scanning) return;
+            try {
+              const codes = await det.detect(video);
+              if (codes.length) return handleDecoded(codes[0].rawValue || '');
+            } catch {}
+            requestAnimationFrame(loop);
+          };
+          loop();
+          return;
+        } catch {}
+      }
+
+      // 2) Фолбэк ZXing
+      const reader = new ZXingBrowser.BrowserMultiFormatReader();
+      const controls = await reader.decodeFromVideoDevice(null, video, (result, err, ctrls)=>{
+        stopFallback = ()=> ctrls.stop();
+        if (result) handleDecoded(result.getText());
+      });
+    }
+
+    // UI events
+    startBtn.onclick = ()=> startScan().catch(e=> setStatus('Не удалось запустить камеру: ' + e.message, false));
+    stopBtn.onclick  = ()=> { stopScan(); hideCard(); };
+    torchBtn.onclick = ()=> toggleTorch();
+    backBtn.onclick  = ()=> { history.length > 1 ? history.back() : window.location.href = '/'; };
+  </script>
 </body>
 </html>
