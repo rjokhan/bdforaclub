@@ -7,18 +7,22 @@ from .views import (
     index_page,
     residents_page,
     events_page,
-    scaner_page
+    scaner_page,
+    qr_validate_proxy,  # 👈 добавили
 )
 
 # Роутер для DRF ViewSets
 router = DefaultRouter()
 router.register('residents', ResidentViewSet)
 router.register('events', EventViewSet)
-router.register('participants', ParticipationViewSet)  # 👈 правильно: participants
+router.register('participants', ParticipationViewSet)  # 👈 participants, не participant
 
 urlpatterns = [
     # API маршруты
     path('api/', include(router.urls)),
+
+    # Прокси для валидации QR
+    path('qr/validate/', qr_validate_proxy, name='qr_validate_proxy'),  # 👈 добавили
 
     # Статичные страницы
     path("", include("django.contrib.staticfiles.urls")),
