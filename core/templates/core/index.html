@@ -5,20 +5,166 @@
   <meta charset="UTF-8">
   <title>CRM клуба</title>
   <link rel="stylesheet" href="{% static 'core/base.css' %}">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <style>
+    /* --- PIN Overlay --- */
+    .pin-overlay {
+      position: fixed; inset: 0;
+      display: grid; place-items: center;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 99999;
+      transition: opacity .25s ease, visibility .25s ease;
+    }
+    .pin-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    .pin-card {
+      width: min(92vw, 420px);
+      background: #fff;
+      color: #111;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+      padding: 22px 20px 18px;
+      font-family: Inter, system-ui, -apple-system, Arial, sans-serif;
+      text-align: center;
+    }
+    .pin-title { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }
+    .pin-sub   { font-size: 13px; color: #666; margin-bottom: 16px; }
+
+    .pin-input {
+      width: 100%;
+      font-size: 24px;
+      letter-spacing: .35em;
+      text-align: center;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      outline: none;
+    }
+    .pin-input:focus { border-color: #be0036; box-shadow: 0 0 0 3px rgba(190,0,54,.12); }
+
+    .pin-actions {
+      display: flex; gap: 10px; margin-top: 14px;
+      justify-content: center;
+    }
+    .btn {
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+      background: #fff;
+      color: #222; font-weight: 700;
+      cursor: pointer; user-select: none;
+    }
+    .btn.primary { background:#be0036; border-color:#be0036; color:#fff; }
+    .hint { font-size: 12px; color:#999; margin-top: 10px; }
+
+    /* Ошибка — “шейк” */
+    .shake { animation: shake .35s linear; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
+
+    /* Блокируем скролл, пока открыт PIN */
+    body.pin-lock { overflow: hidden; touch-action: none; }
+  </style>
 </head>
 <body>
-    <div class="vertical-waves">
-        <div class="wave"></div>
-        <div class="wave"></div>
-        <div class="wave"></div>
-    </div>
+  <div class="vertical-waves" aria-hidden="true">
+    <div class="wave"></div>
+    <div class="wave"></div>
+    <div class="wave"></div>
+  </div>
 
-<div class="entery">
-  <h1>A CLUB - CRM</h1>
-  <a href="/residents-page/" class="nav-button">Список резидентов</a>
-  <a href="/events-page/" class="nav-button">Список ивентов</a>
-  <a href="/scaner-page/" class="nav-button">Сканер QR-кодов</a>
-  
-</div>
+  <div class="entery">
+    <h1>A CLUB - CRM</h1>
+    <a href="/residents-page/" class="nav-button">Список резидентов</a>
+    <a href="/events-page/" class="nav-button">Список ивентов</a>
+    <a href="/scaner-page/" class="nav-button">Сканер QR-кодов</a>
+  </div>
+
+  <!-- PIN Overlay -->
+  <div id="pinOverlay" class="pin-overlay">
+    <div id="pinCard" class="pin-card">
+      <div class="pin-title">Введите PIN‑код</div>
+      <div class="pin-sub">Доступ к CRM защищён.</div>
+      <input id="pinInput" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="••••" autofocus />
+      <div class="pin-actions">
+        <button id="pinSubmit" class="btn primary">Войти</button>
+        <button id="pinClear"  class="btn">Очистить</button>
+      </div>
+      <div class="hint">Подсказка: 4 цифры</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const RIGHT_PIN = '9999'; // ← Ваш корректный PIN
+      const overlay = document.getElementById('pinOverlay');
+      const input   = document.getElementById('pinInput');
+      const submit  = document.getElementById('pinSubmit');
+      const clear   = document.getElementById('pinClear');
+      const card    = document.getElementById('pinCard');
+
+      // Если хотим запоминать успешный вход — включите localStorage:
+      const KEY = 'aclub_crm_pin_ok';
+      try {
+        if (localStorage.getItem(KEY) === '1') {
+          overlay.classList.add('hidden');
+          document.body.classList.remove('pin-lock');
+          return;
+        }
+      } catch(e) {}
+
+      // Изначально блокируем страницу
+      document.body.classList.add('pin-lock');
+
+      function deny() {
+        card.classList.remove('shake');
+        // перезапуск анимации
+        void card.offsetWidth;
+        card.classList.add('shake');
+        input.value = '';
+        input.focus();
+      }
+
+      function allow() {
+        overlay.classList.add('hidden');
+        document.body.classList.remove('pin-lock');
+        try { localStorage.setItem(KEY, '1'); } catch(e) {} // ← можно удалить, если не нужно помнить
+      }
+
+      function tryEnter() {
+        const val = (input.value || '').trim();
+        if (val.length !== 4) { deny(); return; }
+        if (val === RIGHT_PIN) { allow(); }
+        else { deny(); }
+      }
+
+      submit.addEventListener('click', tryEnter);
+      clear.addEventListener('click', () => { input.value=''; input.focus(); });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') tryEnter();
+      });
+
+      input.addEventListener('input', () => {
+        // Разрешаем только цифры
+        input.value = input.value.replace(/\D+/g, '').slice(0, 4);
+      });
+
+      // Блокируем ESC/клик по фону
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          // Ничего не делаем — нельзя закрыть кликом по фону
+          input.focus();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
