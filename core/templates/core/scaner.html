@@ -259,10 +259,11 @@
 
   // готовим payload без hash
   const payload = {
-    telegram_id: Number(qrObj.telegram_id),
-    event_id: Number(qrObj.event_id),
-    transaction_id: Number(qrObj.transaction_id),
-    purchase_id: Number(qrObj.purchase_id),
+    telegram_id: qrObj.telegram_id,
+  event_id: qrObj.event_id,
+  transaction_id: qrObj.transaction_id,
+  purchase_id: qrObj.purchase_id,
+  hash: qrObj.hash // отправляем в API, но не выводим
   };
   // простая валидация
   for (const [k, v] of Object.entries(payload)) {
