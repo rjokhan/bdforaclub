@@ -6,7 +6,8 @@ from .views import (
     ParticipationViewSet,
     index_page,
     residents_page,
-    events_page
+    events_page,
+    scaner_page
 )
 
 # Роутер для DRF ViewSets
@@ -22,7 +23,7 @@ urlpatterns = [
     # Статичные страницы
     path("", include("django.contrib.staticfiles.urls")),
     path('residents-page/', residents_page, name='residents_page'),
-    
+    path('scaner-page/', scaner_page, name='scaner_page'),
     path('events-page/', events_page, name='events_page'),
     path('', index_page, name='index_page'),
 ]
