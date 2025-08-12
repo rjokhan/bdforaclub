@@ -3,18 +3,16 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>СКАНЕР</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <link rel="stylesheet" href="{% static 'core/base.css' %}">
   <style>
     /* --- сканер --- */
     html, body { height: 100%; }
     body { margin:0; background:#111; color:#fff; overflow:hidden; }
-    
-    button, .btn, [role="button"] {
-    touch-action: manipulation; /* Chrome/Android, iOS 13+ частично */
-    }
+
+    /* блокируем двойной тап-зум на кликабельных элементах */
+    button, .btn, [role="button"] { touch-action: manipulation; }
 
     .scanner-root {
       position: relative;
@@ -116,8 +114,7 @@
 
     .sheet .badge {
       width:95%; text-align:center; font-weight:800;
-      margin-left: auto;
-      margin-right: auto;
+      margin-left: auto; margin-right: auto;
       padding:12px 10px; border-radius:10px; margin-bottom:12px;
       text-transform:uppercase; letter-spacing:.5px;
     }
@@ -127,9 +124,7 @@
     .sheet .kv { font-size:14px; line-height:1.65; }
     .sheet .kv b { display:inline-block; min-width:118px; color:#444; }
 
-    .sheet .row {
-      display:flex; gap:10px; margin-top:14px;
-    }
+    .sheet .row { display:flex; gap:10px; margin-top:14px; }
     .sheet .row .btn { flex:1; }
   </style>
 </head>
@@ -171,7 +166,8 @@
   <!-- Фолбэк библиотека QR -->
   <script src="https://unpkg.com/@zxing/browser@latest"></script>
   <script>
-    const API_URL = "/api/qr/resolve/"; // ← замените на ваш эндпоинт
+    // Ваш прод-эндпоинт:
+    const API_URL = "https://events.ayolclub.uz/api/v1/qrcode/validate/";
 
     const video = document.getElementById('preview');
     const startBtn = document.getElementById('startBtn');
@@ -246,110 +242,72 @@
       torchBtn.textContent = torchOn ? 'Фонарик выкл' : 'Фонарик';
     }
 
+    // Разбор QR → отправка на API БЕЗ hash
     async function handleDecoded(text) {
-  const API_URL = "https://events.ayolclub.uz/api/v1/qrcode/validate/";
+      if (!text) return;
+      stopScan();
 
-async function handleDecoded(text) {
-  if (!text) return;
-  stopScan();
+      let qr;
+      try { qr = JSON.parse(text); }
+      catch { showERR('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
 
-  let qr;
-  try { qr = JSON.parse(text); }
-  catch { showERR('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
+      const payload = {
+        telegram_id: qr.telegram_id,
+        event_id: qr.event_id,
+        transaction_id: qr.transaction_id,
+        purchase_id: qr.purchase_id
+        // без hash
+      };
 
-  // Готовим два полезных варианта payload
-  const payloadNoHash = {
-    telegram_id: qr.telegram_id,
-    event_id: qr.event_id,
-    transaction_id: qr.transaction_id,
-    purchase_id: qr.purchase_id,
-  };
-  const payloadWithHash = { ...payloadNoHash, hash: qr.hash }; // вдруг бэк ещё требует
+      setStatus('Проверяем по API…');
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
 
-  // 1) Пытаемся безопасный вариант — БЕЗ hash
-  setStatus('Проверяем по API…');
-  let res, data;
-
-  try {
-    res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payloadNoHash),
-    });
-    data = await res.json().catch(() => ({}));
-  } catch (e) {
-    showERR('Ошибка сети'); setStatus('Ошибка запроса: ' + e.message, false); return;
-  }
-
-  // Если бэк уже умеет без hash — получим 200/4xx с понятной причиной
-  if (res.status === 200) {
-    showOK({
-      full_name: data.full_name || data.user_name,
-      phone: data.phone,
-      event: data.event_title,
-      amount: data.amount_text || data.amount,
-      booking_id: data.booking_id ?? qr.transaction_id,
-    });
-    setStatus('QR подтверждён', true);
-    return;
-  }
-
-  // Временный фолбэк: если сервер требует hash и он есть в QR,
-  // а мы получили 400/401 — пробуем повтор с hash (до миграции бэка).
-  if ((res.status === 400 || res.status === 401) && qr.hash) {
-    try {
-      const res2 = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payloadWithHash),
-      });
-      const data2 = await res2.json().catch(() => ({}));
-      return handleApiDecision(res2.status, data2, qr);
-    } catch (e) {
-      showERR('Ошибка сети'); setStatus('Ошибка запроса: ' + e.message, false); return;
+        switch (res.status) {
+          case 200:
+            showOK({
+              full_name: data.full_name || data.user_name,
+              phone: data.phone,
+              event: data.event_title,
+              amount: data.amount_text || data.amount,
+              booking_id: data.booking_id ?? qr.transaction_id
+            });
+            setStatus('QR подтверждён', true);
+            break;
+          case 401:
+            showERR('Неверный/отсутствующий hash (на бэке ещё требуется)');
+            setStatus('QR не подтверждён', false);
+            break;
+          case 403:
+            showERR('Пользователь недействителен');
+            setStatus('QR не подтверждён', false);
+            break;
+          case 409:
+            showERR('QR уже использован');
+            setStatus('QR не подтверждён', false);
+            break;
+          case 404:
+            showERR(data.reason || data.message || 'Не найдено');
+            setStatus('QR не подтверждён', false);
+            break;
+          case 400:
+            showERR('Неверные данные запроса');
+            setStatus('QR не подтверждён', false);
+            break;
+          default:
+            showERR(data.detail || data.message || `Ошибка ${res.status}`);
+            setStatus('QR не подтверждён', false);
+        }
+      } catch (e) {
+        showERR('Ошибка сети');
+        setStatus('Ошибка запроса: ' + e.message, false);
+      }
     }
-  }
-
-  // Иначе — показываем результат по первому ответу
-  handleApiDecision(res.status, data, qr);
-}
-
-function handleApiDecision(status, data, qr) {
-  // нормализуем сообщение
-  const msg = data?.reason || data?.message || data?.detail || 'Ошибка';
-  switch (status) {
-    case 200:
-      showOK({
-        full_name: data.full_name || data.user_name,
-        phone: data.phone,
-        event: data.event_title,
-        amount: data.amount_text || data.amount,
-        booking_id: data.booking_id ?? qr.transaction_id,
-      });
-      setStatus('QR подтверждён', true);
-      break;
-
-    case 401: // Invalid Hash
-      showERR('Неверный или отсутствующий hash'); setStatus('QR не подтверждён', false); break;
-
-    case 403: // Invalid User
-      showERR('Пользователь недействителен'); setStatus('QR не подтверждён', false); break;
-
-    case 409: // Already Used
-      showERR('QR уже использован'); setStatus('QR не подтверждён', false); break;
-
-    case 404: // Not Found (qr/user/purchase)
-      showERR(msg || 'Не найдено'); setStatus('QR не подтверждён', false); break;
-
-    case 400: // Invalid Data
-      showERR('Неверные данные запроса'); setStatus('QR не подтверждён', false); break;
-
-    default:
-      showERR(msg || `Ошибка ${status}`); setStatus('QR не подтверждён', false);
-  }
-}
-
-}
 
     async function startScan(){
       if (scanning) return;
@@ -391,6 +349,16 @@ function handleApiDecision(status, data, qr) {
     scanAgainBtn.onclick = ()=> startScan().catch(e=> setStatus('Ошибка запуска: ' + e.message, false));
     closeBtn.onclick = ()=> closeSheet();
     sheetBackdrop.onclick = ()=> closeSheet();
+
+    // Блокируем double‑tap zoom и жест масштабирования (iOS Safari)
+    document.addEventListener('dblclick', e => e.preventDefault(), { passive:false });
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive:false });
+    document.addEventListener('gesturestart', e => e.preventDefault(), { passive:false });
   </script>
 </body>
 </html>
