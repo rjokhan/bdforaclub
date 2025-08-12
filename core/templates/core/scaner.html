@@ -245,33 +245,7 @@
     // Разбор QR → отправка на API БЕЗ hash
    async function handleDecoded(text) {
   if (!text) return;
-  // стопим, чтобы не ловить повторно
-  stopScan();
-
-  // утилитки
-  const pick = (...args) => args.find(v => v !== undefined && v !== null && v !== '');
-
-  const buildSuccessView = (data, qrOrPayload) => {
-    const name  = pick(data.full_name, data.user_name, data.user?.full_name, data.name);
-    const phone = pick(data.phone, data.phone_number, data.user?.phone);
-    const eventTitle = pick(data.event_title, data.event_name, data.event?.title, data.event);
-    const amountRaw  = pick(data.amount_text, data.amount_formatted, data.total_amount_text);
-    const amountNum  = pick(data.amount, data.total_amount, data.price, data.paid_amount);
-    const amount = amountRaw || (Number.isFinite(Number(amountNum)) ? `${amountNum} сум` : undefined);
-    const bookingId = pick(
-      data.booking_id, data.purchase_id, data.order_id,
-      qrOrPayload?.purchase_id, qrOrPayload?.transaction_id
-    );
-
-    showOK({
-      full_name: name || '—',
-      phone: phone || '—',
-      event: eventTitle || '—',
-      amount: amount || '—',
-      booking_id: bookingId ?? '—'
-    });
-    setStatus('QR подтверждён', true);
-  };
+  stopScan(); // чтобы не ловить повторно
 
   // парсим QR
   let qrObj;
@@ -283,58 +257,73 @@
     return;
   }
 
-  // формируем полезную нагрузку БЕЗ hash
-  const payloadNoHash = {
+  // готовим payload без hash
+  const payload = {
     telegram_id: Number(qrObj.telegram_id),
     event_id: Number(qrObj.event_id),
     transaction_id: Number(qrObj.transaction_id),
     purchase_id: Number(qrObj.purchase_id),
   };
-  // валидация типов (частая причина 400)
-  for (const [k, v] of Object.entries(payloadNoHash)) {
+  // простая валидация
+  for (const [k, v] of Object.entries(payload)) {
     if (!Number.isFinite(v)) {
       showERR(`Поле ${k} имеет неверный формат`);
       setStatus('Неверные данные QR', false);
       return;
     }
   }
-  const payloadWithHash = qrObj.hash ? { ...payloadNoHash, hash: qrObj.hash } : null;
 
   setStatus('Проверяем по API…');
 
   try {
-    // 1) пробуем без hash
-    const r1 = await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(payloadNoHash)
+      body: JSON.stringify(payload)
     });
-    const d1 = await r1.json().catch(() => ({}));
 
-    if (r1.status === 200) {
-      buildSuccessView(d1, payloadNoHash);
-      return;
-    }
+    // пытаемся распарсить JSON даже на ошибках
+    let body = {};
+    try { body = await res.json(); } catch {}
 
-    // 2) если 400/401 и есть hash — пробуем с hash (временный фолбэк)
-    if ((r1.status === 400 || r1.status === 401) && payloadWithHash) {
-      const r2 = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(payloadWithHash)
+    if (res.status === 200) {
+      // ваша структура:
+      // {
+      //   "message": "...",
+      //   "data": {
+      //     "name": "...",
+      //     "phone": "...",
+      //     "event": "...",
+      //     "amount": 1000.0,
+      //     "transaction_id": 1
+      //   },
+      //   "successful": true
+      // }
+      const d = body?.data || body;
+
+      const formatSum = (val) => {
+        if (typeof val === 'number') {
+          return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(val)) + ' сум';
+        }
+        if (typeof val === 'string' && val.trim() !== '') return val; // если уже форматированная строка
+        return '—';
+        };
+
+      showOK({
+        full_name: d.name || '—',
+        phone: d.phone || '—',
+        event: d.event || '—',
+        amount: formatSum(d.amount),
+        booking_id: d.transaction_id ?? payload.transaction_id ?? '—',
       });
-      const d2 = await r2.json().catch(() => ({}));
-      if (r2.status === 200) {
-        buildSuccessView(d2, payloadWithHash);
-        return;
-      }
-      showERR(d2.reason || d2.message || d2.detail || `Ошибка ${r2.status}`);
-      setStatus('QR не подтверждён', false);
+
+      setStatus('QR подтверждён', true);
       return;
     }
 
-    // иначе — сообщение первой попытки
-    showERR(d1.reason || d1.message || d1.detail || `Ошибка ${r1.status}`);
+    // ошибки
+    const msg = body.reason || body.message || body.detail || `Ошибка ${res.status}`;
+    showERR(msg);
     setStatus('QR не подтверждён', false);
 
   } catch (e) {
