@@ -247,49 +247,108 @@
     }
 
     async function handleDecoded(text) {
+  const API_URL = "https://events.ayolclub.uz/api/v1/qrcode/validate/";
+
+async function handleDecoded(text) {
   if (!text) return;
   stopScan();
 
-  let payload;
+  let qr;
+  try { qr = JSON.parse(text); }
+  catch { showERR('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
+
+  // Готовим два полезных варианта payload
+  const payloadNoHash = {
+    telegram_id: qr.telegram_id,
+    event_id: qr.event_id,
+    transaction_id: qr.transaction_id,
+    purchase_id: qr.purchase_id,
+  };
+  const payloadWithHash = { ...payloadNoHash, hash: qr.hash }; // вдруг бэк ещё требует
+
+  // 1) Пытаемся безопасный вариант — БЕЗ hash
+  setStatus('Проверяем по API…');
+  let res, data;
+
   try {
-    payload = JSON.parse(text);
-  } catch {
-    showERR('QR не содержит валидный JSON');
-    setStatus('QR не JSON', false);
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payloadNoHash),
+    });
+    data = await res.json().catch(() => ({}));
+  } catch (e) {
+    showERR('Ошибка сети'); setStatus('Ошибка запроса: ' + e.message, false); return;
+  }
+
+  // Если бэк уже умеет без hash — получим 200/4xx с понятной причиной
+  if (res.status === 200) {
+    showOK({
+      full_name: data.full_name || data.user_name,
+      phone: data.phone,
+      event: data.event_title,
+      amount: data.amount_text || data.amount,
+      booking_id: data.booking_id ?? qr.transaction_id,
+    });
+    setStatus('QR подтверждён', true);
     return;
   }
 
-  // удаляем hash
-  if ('hash' in payload) {
-    delete payload.hash;
+  // Временный фолбэк: если сервер требует hash и он есть в QR,
+  // а мы получили 400/401 — пробуем повтор с hash (до миграции бэка).
+  if ((res.status === 400 || res.status === 401) && qr.hash) {
+    try {
+      const res2 = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payloadWithHash),
+      });
+      const data2 = await res2.json().catch(() => ({}));
+      return handleApiDecision(res2.status, data2, qr);
+    } catch (e) {
+      showERR('Ошибка сети'); setStatus('Ошибка запроса: ' + e.message, false); return;
+    }
   }
 
-  setStatus('Проверяем по API…');
-  try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
+  // Иначе — показываем результат по первому ответу
+  handleApiDecision(res.status, data, qr);
+}
 
-    if (res.ok && (data.valid === true || data.status === 'ok')) {
+function handleApiDecision(status, data, qr) {
+  // нормализуем сообщение
+  const msg = data?.reason || data?.message || data?.detail || 'Ошибка';
+  switch (status) {
+    case 200:
       showOK({
         full_name: data.full_name || data.user_name,
         phone: data.phone,
         event: data.event_title,
         amount: data.amount_text || data.amount,
-        booking_id: data.booking_id ?? payload.transaction_id
+        booking_id: data.booking_id ?? qr.transaction_id,
       });
       setStatus('QR подтверждён', true);
-    } else {
-      showERR(data.reason || data.message || 'код не действителен');
-      setStatus('QR не подтверждён', false);
-    }
-  } catch (e) {
-    showERR('Ошибка сети');
-    setStatus('Ошибка запроса: ' + e.message, false);
+      break;
+
+    case 401: // Invalid Hash
+      showERR('Неверный или отсутствующий hash'); setStatus('QR не подтверждён', false); break;
+
+    case 403: // Invalid User
+      showERR('Пользователь недействителен'); setStatus('QR не подтверждён', false); break;
+
+    case 409: // Already Used
+      showERR('QR уже использован'); setStatus('QR не подтверждён', false); break;
+
+    case 404: // Not Found (qr/user/purchase)
+      showERR(msg || 'Не найдено'); setStatus('QR не подтверждён', false); break;
+
+    case 400: // Invalid Data
+      showERR('Неверные данные запроса'); setStatus('QR не подтверждён', false); break;
+
+    default:
+      showERR(msg || `Ошибка ${status}`); setStatus('QR не подтверждён', false);
   }
+}
+
 }
 
     async function startScan(){
