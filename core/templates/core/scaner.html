@@ -243,71 +243,89 @@
     }
 
     // Разбор QR → отправка на API БЕЗ hash
-    async function handleDecoded(text) {
-      if (!text) return;
-      stopScan();
+   async function handleDecoded(text) {
+  if (!text) return;
+  stopScan();
 
-      let qr;
-      try { qr = JSON.parse(text); }
-      catch { showERR('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
+  let qr;
+  try { qr = JSON.parse(text); }
+  catch { showERR('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
 
-      const payload = {
-        telegram_id: qr.telegram_id,
-        event_id: qr.event_id,
-        transaction_id: qr.transaction_id,
-        purchase_id: qr.purchase_id
-        // без hash
-      };
-
-      setStatus('Проверяем по API…');
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json().catch(() => ({}));
-
-        switch (res.status) {
-          case 200:
-            showOK({
-              full_name: data.full_name || data.user_name,
-              phone: data.phone,
-              event: data.event_title,
-              amount: data.amount_text || data.amount,
-              booking_id: data.booking_id ?? qr.transaction_id
-            });
-            setStatus('QR подтверждён', true);
-            break;
-          case 401:
-            showERR('Неверный/отсутствующий hash (на бэке ещё требуется)');
-            setStatus('QR не подтверждён', false);
-            break;
-          case 403:
-            showERR('Пользователь недействителен');
-            setStatus('QR не подтверждён', false);
-            break;
-          case 409:
-            showERR('QR уже использован');
-            setStatus('QR не подтверждён', false);
-            break;
-          case 404:
-            showERR(data.reason || data.message || 'Не найдено');
-            setStatus('QR не подтверждён', false);
-            break;
-          case 400:
-            showERR('Неверные данные запроса');
-            setStatus('QR не подтверждён', false);
-            break;
-          default:
-            showERR(data.detail || data.message || `Ошибка ${res.status}`);
-            setStatus('QR не подтверждён', false);
-        }
-      } catch (e) {
-        showERR('Ошибка сети');
-        setStatus('Ошибка запроса: ' + e.message, false);
-      }
+  // нормализуем и валидируем поля
+  const payloadNoHash = {
+    telegram_id: Number(qr.telegram_id),
+    event_id: Number(qr.event_id),
+    transaction_id: Number(qr.transaction_id),
+    purchase_id: Number(qr.purchase_id),
+  };
+  // если какое-то поле NaN — сразу 400 на бэке; проверим сами
+  for (const [k, v] of Object.entries(payloadNoHash)) {
+    if (!Number.isFinite(v)) {
+      showERR(`Поле ${k} имеет неверный формат`);
+      setStatus('Неверные данные QR', false);
+      return;
     }
+  }
+  const payloadWithHash = qr.hash ? { ...payloadNoHash, hash: qr.hash } : null;
+
+  setStatus('Проверяем по API…');
+
+  // 1) попытка без hash
+  try {
+    const r1 = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept':'application/json' },
+      body: JSON.stringify(payloadNoHash)
+    });
+    const d1 = await r1.json().catch(() => ({}));
+
+    if (r1.status === 200) {
+      showOK({
+        full_name: d1.full_name || d1.user_name,
+        phone: d1.phone,
+        event: d1.event_title,
+        amount: d1.amount_text || d1.amount,
+        booking_id: d1.booking_id ?? payloadNoHash.transaction_id
+      });
+      setStatus('QR подтверждён', true);
+      return;
+    }
+
+    // 2) если бэк требует hash — повторим с hash (если он был в QR)
+    if ((r1.status === 400 || r1.status === 401) && payloadWithHash) {
+      const r2 = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept':'application/json' },
+        body: JSON.stringify(payloadWithHash)
+      });
+      const d2 = await r2.json().catch(() => ({}));
+
+      if (r2.status === 200) {
+        showOK({
+          full_name: d2.full_name || d2.user_name,
+          phone: d2.phone,
+          event: d2.event_title,
+          amount: d2.amount_text || d2.amount,
+          booking_id: d2.booking_id ?? payloadNoHash.transaction_id
+        });
+        setStatus('QR подтверждён', true);
+        return;
+      }
+      showERR(d2.reason || d2.message || d2.detail || `Ошибка ${r2.status}`);
+      setStatus('QR не подтверждён', false);
+      return;
+    }
+
+    // прочие статусы по первой попытке
+    showERR(d1.reason || d1.message || d1.detail || `Ошибка ${r1.status}`);
+    setStatus('QR не подтверждён', false);
+
+  } catch (e) {
+    showERR('Ошибка сети');
+    setStatus('Ошибка запроса: ' + e.message, false);
+  }
+}
+
 
     async function startScan(){
       if (scanning) return;
