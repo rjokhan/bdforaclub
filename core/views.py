@@ -19,6 +19,9 @@ def residents_page(request):
 def events_page(request):
     return render(request, "core/events.html")
 
+def scaner_page(request):
+    return render(request, 'core/scaner.html')
+
 
 # API Views
 class ResidentViewSet(viewsets.ModelViewSet):
