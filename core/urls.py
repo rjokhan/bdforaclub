@@ -1,5 +1,4 @@
 from django.urls import path, include
-from .views import qr_validate_proxy
 from rest_framework.routers import DefaultRouter
 from .views import (
     ResidentViewSet,
@@ -27,5 +26,4 @@ urlpatterns = [
     path('scaner-page/', scaner_page, name='scaner_page'),
     path('events-page/', events_page, name='events_page'),
     path('', index_page, name='index_page'),
-    path("qr/validate/", qr_validate_proxy, name="qr_validate_proxy"),
 ]

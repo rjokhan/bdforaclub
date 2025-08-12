@@ -83,7 +83,7 @@ class ParticipationViewSet(viewsets.ModelViewSet):
                 created = []
                 for item in data:
                     if Participation.objects.filter(event_id=item["event"], resident_id=item["resident"]).exists():
-                        сontinue
+                        ontinue
                     serializer = self.get_serializer(data=item)
                     serializer.is_valid(raise_exception=True)
                     serializer.save()
