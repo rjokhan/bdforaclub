@@ -3,6 +3,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>СКАНЕР</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="{% static 'core/base.css' %}">
@@ -10,6 +11,10 @@
     /* --- сканер --- */
     html, body { height: 100%; }
     body { margin:0; background:#111; color:#fff; overflow:hidden; }
+    
+    button, .btn, [role="button"] {
+    touch-action: manipulation; /* Chrome/Android, iOS 13+ частично */
+    }
 
     .scanner-root {
       position: relative;
