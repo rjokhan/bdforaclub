@@ -2,145 +2,169 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>СКАНЕР</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="{% static 'core/base.css' %}">
   <style>
-    /* --- ДОБАВЛЕНО: оформление сканера, не трогает ваш base.css --- */
-    body { margin:0; }
-    .scanner-page {
+    /* --- сканер --- */
+    html, body { height: 100%; }
+    body { margin:0; background:#111; color:#fff; overflow:hidden; }
+
+    .scanner-root {
       position: relative;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 20px 16px 32px;
-      gap: 12px;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
     }
-    .phone-frame {
-      width: min(420px, 92vw);
-      aspect-ratio: 9/19.5;
-      border-radius: 28px;
-      background: #2b2b2b;
-      box-shadow: 0 16px 50px rgba(0,0,0,.35);
-      position: relative;
-      overflow: hidden;
-      border: 8px solid #3a3a3a;
-    }
-    .notch {
-      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-      width: 42%; height: 22px; background: #141414; border-radius: 16px;
-      z-index: 5;
-    }
-    video#preview {
-      position:absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+
+    /* фон, оставляем ваш */
+    .vertical-waves { position:absolute; inset:0; z-index:0; }
+
+    /* видео с камеры */
+    #preview {
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      object-fit: cover;
       background:#000;
-      filter: brightness(0.98);
+      z-index:1;
     }
+
+    /* накладка с рамкой */
     .overlay {
-      position:absolute; inset:0; display:grid; place-items:center; z-index:3;
-      color:#fff; font-family: Inter, system-ui, -apple-system, Arial;
-      text-align:center;
+      position:absolute; inset:0; z-index:2;
+      display:grid; place-items:center;
+      pointer-events:none;
     }
+
     .qr-frame {
-      position: relative; width: 70%; aspect-ratio: 1/1; max-width: 320px;
-      border: 3px solid rgba(255,255,255,0.85);
-      border-radius: 12px;
-      box-shadow: 0 0 0 200vmax rgba(0,0,0,.35) inset;
+      position: relative;
+      width: min(72vw, 420px);
+      aspect-ratio: 1/1;
+      border: 3px solid rgba(255,255,255,0.9);
+      border-radius: 14px;
+      box-shadow:
+        0 0 0 200vmax rgba(0,0,0,.45) inset,
+        0 12px 28px rgba(0,0,0,.35);
     }
+
     .hint {
-      position: absolute; top: -46px; left: 50%; transform: translateX(-50%);
-      font-size: 13px; letter-spacing: .5px; text-transform: uppercase;
+      position:absolute; top:-42px; left:50%; transform:translateX(-50%);
+      font-family: Inter, system-ui, -apple-system, Arial;
+      font-size: 13px; letter-spacing:.5px; text-transform:uppercase;
       text-shadow: 0 1px 2px rgba(0,0,0,.6);
       white-space: nowrap;
     }
+
+    /* бегущая линия — loop with reverse */
     .scanline {
-      position:absolute; left: 6px; right: 6px; height: 2px; top: 10%;
-      background: rgba(82,255,144,.95);
-      box-shadow: 0 0 12px rgba(82,255,144,.9), 0 0 24px rgba(82,255,144,.7);
-      border-radius: 2px; animation: sweep 2.2s linear infinite;
+      position:absolute; left:8px; right:8px; height:2px; top:10%;
+      background: rgba(82,255,144,1);
+      box-shadow: 0 0 12px rgba(82,255,144,.9), 0 0 24px rgba(82,255,144,.6);
+      border-radius:2px;
+      animation: sweep 2.2s linear infinite alternate;
     }
-    @keyframes sweep { 
-      0% { top: 10%; } 
-      100% { top: calc(90% - 2px); } 
+    @keyframes sweep {
+      0%   { top:10%; }
+      100% { top:calc(90% - 2px); }
     }
 
+    /* кнопки */
     .controls {
-      width: min(420px, 92vw);
-      display:flex; gap:8px; justify-content:center; margin-top:10px;
+      position: absolute; left:0; right:0; bottom: 24px; z-index:3;
+      display:flex; gap:10px; justify-content:center; padding:0 16px;
+      pointer-events:auto;
     }
     .btn {
-      flex: 1; padding: 12px 14px; border-radius: 10px; border:1px solid #d7d7d7;
-      background:#fff; color:#222; font-weight:600; cursor:pointer;
-    }
-    .btn.primary { background:#be0036; border-color:#be0036; color:#fff; }
-    .btn.dark { background:#3b3b3b; color:#fff; border-color:#3b3b3b; }
-    .status {
-      width:min(420px,92vw); text-align:center; color:#666; font-size:13px; margin-top:4px;
-    }
-
-    /* Карточка результата (как на макете) */
-    .result-card {
-      width: min(420px, 92vw);
-      background:#fff; color:#111; border-radius: 14px;
-      box-shadow: 0 16px 40px rgba(0,0,0,.22);
-      padding: 16px; margin-top: 12px; display:none;
+      flex:1; max-width: 200px;
+      padding:12px 14px; border-radius:12px; border:1px solid #d9d9d9;
+      background:#fff; color:#222; font-weight:700; cursor:pointer;
       font-family: Inter, system-ui, -apple-system, Arial;
     }
-    .badge {
-      display:inline-block; width:100%; text-align:center; font-weight:800;
-      padding: 12px 10px; border-radius: 10px; margin-bottom: 12px;
-      text-transform: uppercase; letter-spacing: .5px;
+    .btn.primary { background:#be0036; color:#fff; border-color:#be0036; }
+    .btn.dark { background:#3b3b3b; color:#fff; border-color:#3b3b3b; }
+
+    .status {
+      position:absolute; top:14px; left:50%; transform:translateX(-50%);
+      z-index:3; font-size:13px; color:#d7d7d7; text-align:center;
+      padding:6px 10px; background:rgba(0,0,0,.35); border-radius:10px;
+      backdrop-filter: blur(4px);
     }
-    .badge.ok { background:#d6f5e3; color:#0a7a34; border:1px solid #bde8cf; }
-    .badge.err { background:#ffd7d7; color:#a40020; border:1px solid #f3b2b2; }
-    .kv { font-size:14px; line-height:1.6; }
-    .kv b { display:inline-block; min-width:108px; color:#444; }
-    .back-row { display:flex; justify-content:center; margin-top: 14px; }
-    .back { padding: 10px 16px; border-radius: 10px; border:1px solid #444; background:#4b4b4b; color:#fff; font-weight:700; }
-    /* --- КОНЕЦ добавленного оформления --- */
+
+    /* --- нижний попап (bottom sheet) --- */
+    .sheet-backdrop {
+      position: fixed; inset:0; background: rgba(0,0,0,.35);
+      z-index: 9; opacity:0; pointer-events:none; transition: opacity .25s ease;
+    }
+    .sheet {
+      position: fixed; left:0; right:0; bottom:0; z-index: 10;
+      transform: translateY(100%);
+      transition: transform .28s cubic-bezier(.22,.65,.25,1);
+      background:#fff; color:#111; border-radius: 16px 16px 0 0;
+      box-shadow: 0 -16px 50px rgba(0,0,0,.35);
+      padding: 16px 16px 22px;
+      font-family: Inter, system-ui, -apple-system, Arial;
+    }
+    .sheet.open { transform: translateY(0%); }
+    .sheet-backdrop.open { opacity:1; pointer-events:auto; }
+
+    .sheet .badge {
+      width:100%; text-align:center; font-weight:800;
+      padding:12px 10px; border-radius:10px; margin-bottom:12px;
+      text-transform:uppercase; letter-spacing:.5px;
+    }
+    .sheet .badge.ok  { background:#d6f5e3; color:#0a7a34; border:1px solid #bde8cf; }
+    .sheet .badge.err { background:#ffd7d7; color:#a40020; border:1px solid #f3b2b2; }
+
+    .sheet .kv { font-size:14px; line-height:1.65; }
+    .sheet .kv b { display:inline-block; min-width:118px; color:#444; }
+
+    .sheet .row {
+      display:flex; gap:10px; margin-top:14px;
+    }
+    .sheet .row .btn { flex:1; }
   </style>
 </head>
 <body>
-  <div class="scanner-page">
-    <!-- ваш фон оставляем -->
+  <div class="scanner-root">
     <div class="vertical-waves" aria-hidden="true">
       <div class="wave"></div><div class="wave"></div><div class="wave"></div>
     </div>
 
-    <!-- “телефон” с видео и рамкой -->
-    <div class="phone-frame">
-      <div class="notch"></div>
-      <video id="preview" playsinline muted></video>
-      <div class="overlay">
-        <div class="qr-frame" aria-label="Рамка для сканирования">
-          <div class="hint">НАВЕДИТЕ QR КОД В РАМКУ</div>
-          <div class="scanline"></div>
-        </div>
+    <video id="preview" playsinline muted></video>
+
+    <div class="overlay" aria-hidden="true">
+      <div class="qr-frame">
+        <div class="hint">НАВЕДИТЕ QR КОД В РАМКУ</div>
+        <div class="scanline"></div>
       </div>
     </div>
+
+    <div id="status" class="status">Камера выключена.</div>
 
     <div class="controls">
       <button id="startBtn" class="btn primary">Включить сканер</button>
       <button id="torchBtn" class="btn">Фонарик</button>
-      <button id="stopBtn" class="btn">Выключить</button>
-    </div>
-    <div id="status" class="status">Камера выключена.</div>
-
-    <!-- Карточка результата -->
-    <div id="resultCard" class="result-card">
-      <div id="resultBadge" class="badge">…</div>
-      <div id="resultBody" class="kv"></div>
-      <div class="back-row"><button id="backBtn" class="back">НАЗАД</button></div>
+      <button id="stopBtn"  class="btn">Выключить</button>
     </div>
   </div>
 
-  <!-- Фолбэк библиотека для QR -->
+  <!-- Backdrop + Bottom Sheet -->
+  <div id="sheetBackdrop" class="sheet-backdrop"></div>
+  <div id="sheet" class="sheet" role="dialog" aria-modal="true" aria-live="polite">
+    <div id="sheetBadge" class="badge">…</div>
+    <div id="sheetBody" class="kv"></div>
+    <div class="row">
+      <button id="scanAgainBtn" class="btn dark">Сканировать ещё</button>
+      <button id="closeBtn" class="btn">Закрыть</button>
+    </div>
+  </div>
+
+  <!-- Фолбэк библиотека QR -->
   <script src="https://unpkg.com/@zxing/browser@latest"></script>
   <script>
-    const API_URL = "/api/qr/resolve/"; // ← ПОДСТАВЬТЕ ВАШ эндпоинт
+    const API_URL = "/api/qr/resolve/"; // ← замените на ваш эндпоинт
 
     const video = document.getElementById('preview');
     const startBtn = document.getElementById('startBtn');
@@ -148,45 +172,48 @@
     const torchBtn = document.getElementById('torchBtn');
     const statusEl = document.getElementById('status');
 
-    const card     = document.getElementById('resultCard');
-    const badge    = document.getElementById('resultBadge');
-    const bodyEl   = document.getElementById('resultBody');
-    const backBtn  = document.getElementById('backBtn');
+    const sheet = document.getElementById('sheet');
+    const sheetBackdrop = document.getElementById('sheetBackdrop');
+    const sheetBadge = document.getElementById('sheetBadge');
+    const sheetBody  = document.getElementById('sheetBody');
+    const scanAgainBtn = document.getElementById('scanAgainBtn');
+    const closeBtn  = document.getElementById('closeBtn');
 
-    let stream = null, track = null, scanning = false, torchOn = false, stopFallback = null;
+    let stream = null, track = null, scanning = false, stopFallback = null, torchOn = false;
 
     function setStatus(msg, ok=null){
       statusEl.textContent = msg;
-      statusEl.style.color = ok===true ? '#0a7a34' : ok===false ? '#a40020' : '#666';
+      statusEl.style.color = ok===true ? '#8fffb0' : ok===false ? '#ffb3b3' : '#d7d7d7';
     }
 
-    function showCardOk(data){
-      badge.className = 'badge ok';
-      badge.textContent = 'ПОДТВЕРЖДЕНО!';
-      bodyEl.innerHTML = [
+    function openSheet(){ sheet.classList.add('open'); sheetBackdrop.classList.add('open'); }
+    function closeSheet(){ sheet.classList.remove('open'); sheetBackdrop.classList.remove('open'); }
+
+    function showOK(data){
+      sheetBadge.className = 'badge ok';
+      sheetBadge.textContent = 'ПОДТВЕРЖДЕНО!';
+      sheetBody.innerHTML = [
         data.full_name ? `<div><b>Резидент:</b> ${data.full_name}</div>` : '',
-        data.phone ? `<div><b>Номер:</b> ${data.phone}</div>` : '',
-        data.event ? `<div><b>Ивент:</b> ${data.event}</div>` : '',
-        data.amount ? `<div><b>Сумма оплаты:</b> ${data.amount}</div>` : '',
-        data.booking_id ? `<div><b>ID брони:</b> ${data.booking_id}</div>` : ''
+        data.phone     ? `<div><b>Номер:</b> ${data.phone}</div>` : '',
+        data.event     ? `<div><b>Ивент:</b> ${data.event}</div>` : '',
+        data.amount    ? `<div><b>Сумма оплаты:</b> ${data.amount}</div>` : '',
+        (data.booking_id ?? data.booking_id===0) ? `<div><b>ID брони:</b> ${data.booking_id}</div>` : ''
       ].join('');
-      card.style.display = 'block';
+      openSheet();
       navigator.vibrate?.(80);
     }
 
-    function showCardErr(reason){
-      badge.className = 'badge err';
-      badge.textContent = 'НЕ ПОДТВЕРЖДЕНО!';
-      bodyEl.innerHTML = `<div><b>Причина ошибки:</b> ${reason || 'неизвестно'}</div>`;
-      card.style.display = 'block';
+    function showERR(reason){
+      sheetBadge.className = 'badge err';
+      sheetBadge.textContent = 'НЕ ПОДТВЕРЖДЕНО!';
+      sheetBody.innerHTML = `<div><b>Причина ошибки:</b> ${reason || 'неизвестно'}</div>`;
+      openSheet();
       navigator.vibrate?.([60,40,60]);
     }
 
-    function hideCard(){ card.style.display = 'none'; }
-
     async function startCamera(){
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: { ideal: 'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } },
         audio: false
       });
       video.srcObject = stream;
@@ -194,99 +221,102 @@
       track = stream.getVideoTracks()[0];
     }
 
-    async function toggleTorch(){
-      if (!track) return setStatus('Фонарик недоступен (камера выключена)');
-      const caps = track.getCapabilities?.();
-      if (!caps || !caps.torch) return setStatus('Фонарик не поддерживается на этом устройстве');
-      await track.applyConstraints({ advanced:[{ torch: !torchOn }] });
-      torchOn = !torchOn;
-      torchBtn.textContent = torchOn ? 'Фонарик выкл' : 'Фонарик';
-    }
-
     function stopScan(){
       scanning = false;
-      if (stopFallback) { try{ stopFallback(); }catch{} stopFallback = null; }
-      if (track) { track.stop(); track = null; }
-      if (stream) { stream.getTracks().forEach(t=>t.stop()); stream = null; }
+      if (stopFallback){ try{ stopFallback(); }catch{} stopFallback=null; }
+      if (track){ track.stop(); track=null; }
+      if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
       video.srcObject = null;
       setStatus('Камера выключена.');
     }
 
+    async function toggleTorch(){
+      if (!track) return setStatus('Фонарик недоступен (камера выключена)');
+      const caps = track.getCapabilities?.();
+      if (!caps || !caps.torch) return setStatus('Фонарик не поддерживается на этом устройстве');
+      torchOn = !torchOn;
+      await track.applyConstraints({ advanced:[{ torch: torchOn }] });
+      torchBtn.textContent = torchOn ? 'Фонарик выкл' : 'Фонарик';
+    }
+
     async function handleDecoded(text){
       if (!text) return;
-      stopScan(); // не считываем повторно
-      let payload;
-      try { payload = JSON.parse(text); } 
-      catch { showCardErr('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
+      stopScan(); // предотвращаем повторные считывания
 
-      // Мини-валидация
-      if (!payload.hash) { showCardErr('Отсутствует hash'); setStatus('Неверный формат QR', false); return; }
+      let payload;
+      try { payload = JSON.parse(text); }
+      catch { showERR('QR не содержит валидный JSON'); setStatus('QR не JSON', false); return; }
+
+      if (!payload.hash){ showERR('Отсутствует hash'); setStatus('Неверный формат QR', false); return; }
 
       setStatus('Проверяем по API…');
-
-      try {
+      try{
         const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method:'POST',
+          headers:{ 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
-        if (res.ok && (data.valid === true || data.status === 'ok')) {
-          showCardOk({
+
+        if (res.ok && (data.valid === true || data.status === 'ok')){
+          showOK({
             full_name: data.full_name || data.user_name,
             phone: data.phone,
             event: data.event_title,
             amount: data.amount_text || data.amount,
-            booking_id: data.booking_id || payload.transaction_id
+            booking_id: data.booking_id ?? payload.transaction_id
           });
           setStatus('QR подтверждён', true);
         } else {
-          showCardErr(data.reason || data.message || 'код не действителен');
+          showERR(data.reason || data.message || 'код не действителен');
           setStatus('QR не подтверждён', false);
         }
-      } catch (e) {
-        showCardErr('Ошибка сети');
+      } catch(e){
+        showERR('Ошибка сети');
         setStatus('Ошибка запроса: ' + e.message, false);
       }
     }
 
     async function startScan(){
       if (scanning) return;
-      hideCard();
+      closeSheet();
       await startCamera();
       scanning = true;
-      setStatus('Сканирование… Наведите QR в рамку');
+      setStatus('Сканирование… наведите QR в рамку');
 
-      // 1) Пытаемся нативный BarcodeDetector
-      if ('BarcodeDetector' in window) {
-        try {
+      // 1) Нативный детектор
+      if ('BarcodeDetector' in window){
+        try{
           const det = new BarcodeDetector({ formats:['qr_code'] });
           const loop = async ()=>{
             if (!scanning) return;
-            try {
+            try{
               const codes = await det.detect(video);
               if (codes.length) return handleDecoded(codes[0].rawValue || '');
-            } catch {}
+            }catch{}
             requestAnimationFrame(loop);
           };
           loop();
           return;
-        } catch {}
+        }catch{}
       }
 
-      // 2) Фолбэк ZXing
+      // 2) ZXing фолбэк
       const reader = new ZXingBrowser.BrowserMultiFormatReader();
       const controls = await reader.decodeFromVideoDevice(null, video, (result, err, ctrls)=>{
-        stopFallback = ()=> ctrls.stop();
+        stopFallback = () => ctrls.stop();
         if (result) handleDecoded(result.getText());
       });
     }
 
-    // UI events
+    // события UI
     startBtn.onclick = ()=> startScan().catch(e=> setStatus('Не удалось запустить камеру: ' + e.message, false));
-    stopBtn.onclick  = ()=> { stopScan(); hideCard(); };
+    stopBtn.onclick  = ()=> { stopScan(); };
     torchBtn.onclick = ()=> toggleTorch();
-    backBtn.onclick  = ()=> { history.length > 1 ? history.back() : window.location.href = '/'; };
+
+    scanAgainBtn.onclick = ()=> startScan().catch(e=> setStatus('Ошибка запуска: ' + e.message, false));
+    closeBtn.onclick = ()=> closeSheet();
+    sheetBackdrop.onclick = ()=> closeSheet();
   </script>
 </body>
 </html>
