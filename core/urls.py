@@ -24,4 +24,5 @@ urlpatterns = [
     path('residents-page/', residents_page, name='residents_page'),
     path('events-page/', events_page, name='events_page'),
     path('', index_page, name='index_page'),
+    path('scaner-page/', views.scaner_page, name='scaner_page'),
 ]
