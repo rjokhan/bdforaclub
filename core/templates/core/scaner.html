@@ -192,16 +192,24 @@
     function openSheet(){ sheet.classList.add('open'); sheetBackdrop.classList.add('open'); }
     function closeSheet(){ sheet.classList.remove('open'); sheetBackdrop.classList.remove('open'); }
 
+    // ВЫВОД УСПЕХА (добавили "Стол" опционально)
     function showOK(data){
       sheetBadge.className = 'badge ok';
       sheetBadge.textContent = 'ПОДТВЕРЖДЕНО!';
+
+      // безопасный геттер «Стол»
+      const tableVal = (data.table ?? data.table_number ?? data.table_id);
+
       sheetBody.innerHTML = [
         data.full_name ? `<div><b>Резидент:</b> ${data.full_name}</div>` : '',
         data.phone     ? `<div><b>Номер:</b> ${data.phone}</div>` : '',
         data.event     ? `<div><b>Ивент:</b> ${data.event}</div>` : '',
+        (tableVal !== undefined && tableVal !== null && String(tableVal).trim() !== '')
+          ? `<div><b>Стол:</b> ${tableVal}</div>` : '',
         data.amount    ? `<div><b>Сумма оплаты:</b> ${data.amount}</div>` : '',
         (data.booking_id ?? data.booking_id===0) ? `<div><b>ID брони:</b> ${data.booking_id}</div>` : ''
       ].join('');
+
       openSheet();
       navigator.vibrate?.(80);
     }
@@ -242,133 +250,139 @@
       torchBtn.textContent = torchOn ? 'Фонарик выкл' : 'Фонарик';
     }
 
-    // Разбор QR → отправка на API БЕЗ hash
-   async function handleDecoded(text) {
-  if (!text) return;
-  stopScan(); // чтобы не дублировать прочтение
+    // Разбор QR → отправка на API (с поддержкой опц. table + нормализация hash)
+    async function handleDecoded(text) {
+      if (!text) return;
+      stopScan(); // чтобы не дублировать прочтение
 
-  // helpers
-  const pick = (...args) => args.find(v => v !== undefined && v !== null && v !== '');
-  const base64ToHex = (b64) => {
-    // добиваем padding до кратности 4
-    const pad = '===='.slice((b64.length % 4) || 4);
-    const bin = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
-    let hex = '';
-    for (let i = 0; i < bin.length; i++) {
-      const h = bin.charCodeAt(i).toString(16).padStart(2, '0');
-      hex += h;
-    }
-    return hex;
-  };
-  const normalizeHash = (hash) => {
-    if (!hash || typeof hash !== 'string') return null;
-    const trimmed = hash.trim();
-
-    // уже hex 64?
-    if (/^[0-9a-f]{64}$/i.test(trimmed)) return trimmed.toLowerCase();
-
-    // argon2id? берём последнюю часть (base64) и конвертим в hex
-    if (trimmed.startsWith('$argon2')) {
-      const parts = trimmed.split('$'); // ["", "argon2id","v=19","m=...","<salt>","<hashb64>"]
-      const b64 = parts[parts.length - 1];
-      try {
-        const hex = base64ToHex(b64);
-        if (/^[0-9a-f]{64}$/i.test(hex)) return hex.toLowerCase();
-        return hex.toLowerCase(); // вернём как есть — сервер может принимать и другую длину
-      } catch (e) {
-        return null;
-      }
-    }
-
-    // может прилететь с 0x-префиксом или с заглавными
-    const maybeHex = trimmed.replace(/^0x/i, '');
-    if (/^[0-9a-f]+$/i.test(maybeHex)) return maybeHex.toLowerCase();
-
-    return null;
-  };
-
-  // 1) парсим QR
-  let qr;
-  try {
-    qr = JSON.parse(text);
-  } catch {
-    showERR('QR не содержит валидный JSON');
-    setStatus('QR не JSON', false);
-    return;
-  }
-
-  // 2) формируем payload (со всеми полями, включая hash — НО нормализуем его)
-  const payload = {
-    telegram_id: Number(qr.telegram_id),
-    event_id: Number(qr.event_id),
-    transaction_id: Number(qr.transaction_id),
-    purchase_id: Number(qr.purchase_id),
-  };
-  // базовая валидация чисел
-  for (const [k, v] of Object.entries(payload)) {
-    if (!Number.isFinite(v)) {
-      showERR(`Поле ${k} имеет неверный формат`);
-      setStatus('Неверные данные QR', false);
-      return;
-    }
-  }
-  const normHash = normalizeHash(qr.hash);
-  if (qr.hash) {
-    if (!normHash) {
-      showERR('hash имеет неверный формат'); // локально подсветим причину
-      setStatus('Неверные данные QR (hash)', false);
-      return;
-    }
-    payload.hash = normHash;
-  }
-
-  setStatus('Проверяем по API…');
-
-  try {
-    const res = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    let body = {};
-    try { body = await res.json(); } catch {}
-
-    if (res.status === 200) {
-      // ожидаем структуру:
-      // { message: "...", data: { name, phone, event, amount, transaction_id }, successful: true }
-      const d = body?.data || body;
-
-      const formatSum = (val) => {
-        if (typeof val === 'number') {
-          return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(Math.round(val)) + ' сум';
+      // helpers
+      const base64ToHex = (b64) => {
+        const pad = '===='.slice((b64.length % 4) || 4);
+        const bin = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+        let hex = '';
+        for (let i = 0; i < bin.length; i++) {
+          const h = bin.charCodeAt(i).toString(16).padStart(2, '0');
+          hex += h;
         }
-        if (typeof val === 'string' && val.trim() !== '') return val;
-        return '—';
+        return hex;
+      };
+      const normalizeHash = (hash) => {
+        if (!hash || typeof hash !== 'string') return null;
+        const trimmed = hash.trim();
+
+        if (/^[0-9a-f]{64}$/i.test(trimmed)) return trimmed.toLowerCase();
+
+        if (trimmed.startsWith('$argon2')) {
+          const parts = trimmed.split('$'); // ["", "argon2id","v=19","m=...","<salt>","<hashb64>"]
+          const b64 = parts[parts.length - 1];
+          try {
+            const hex = base64ToHex(b64);
+            if (/^[0-9a-f]{64}$/i.test(hex)) return hex.toLowerCase();
+            return hex.toLowerCase();
+          } catch (e) {
+            return null;
+          }
+        }
+
+        const maybeHex = trimmed.replace(/^0x/i, '');
+        if (/^[0-9a-f]+$/i.test(maybeHex)) return maybeHex.toLowerCase();
+
+        return null;
       };
 
-      showOK({
-        full_name: d.name || '—',
-        phone: d.phone || '—',
-        event: d.event || '—',
-        amount: formatSum(d.amount),
-        booking_id: d.transaction_id ?? payload.transaction_id ?? '—',
-      });
-      setStatus('QR подтверждён', true);
-      return;
+      // 1) парсим QR
+      let qr;
+      try {
+        qr = JSON.parse(text);
+      } catch {
+        showERR('QR не содержит валидный JSON');
+        setStatus('QR не JSON', false);
+        return;
+      }
+
+      // 2) формируем payload (включая опц. table)
+      const payload = {
+        telegram_id: Number(qr.telegram_id),
+        event_id: Number(qr.event_id),
+        transaction_id: Number(qr.transaction_id),
+        purchase_id: Number(qr.purchase_id),
+        ...(qr.table !== undefined ? { table: Number(qr.table) } : {}),
+      };
+
+      // базовая валидация чисел
+      for (const [k, v] of Object.entries(payload)) {
+        if (k === 'hash' || v === undefined || v === null) continue;
+        if (!Number.isFinite(v)) {
+          showERR(`Поле ${k} имеет неверный формат`);
+          setStatus('Неверные данные QR', false);
+          return;
+        }
+      }
+
+      // 3) нормализуем hash (если есть)
+      const normHash = normalizeHash(qr.hash);
+      if (qr.hash) {
+        if (!normHash) {
+          showERR('hash имеет неверный формат');
+          setStatus('Неверные данные QR (hash)', false);
+          return;
+        }
+        payload.hash = normHash;
+      }
+
+      setStatus('Проверяем по API…');
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        let body = {};
+        try { body = await res.json(); } catch {}
+
+        if (res.status === 200) {
+          // ожидаем структуру:
+          // { message: "...", data: { name, phone, event, amount, transaction_id, table? }, successful: true }
+          const d = body?.data || body;
+
+          const formatSum = (val) => {
+            if (typeof val === 'number') {
+              return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
+                .format(Math.round(val)) + ' сум';
+            }
+            if (typeof val === 'string' && val.trim() !== '') return val;
+            return '';
+          };
+
+          // берём table из ответа; если нет — подставляем из QR/payload
+          const tableSafe = (
+            d.table ?? d.table_number ?? d.table_id ?? payload.table
+          );
+
+          showOK({
+            full_name: d.name || '',
+            phone: d.phone || '',
+            event: d.event || '',
+            amount: formatSum(d.amount),
+            booking_id: d.transaction_id ?? payload.transaction_id,
+            table: tableSafe
+          });
+          setStatus('QR подтверждён', true);
+          return;
+        }
+
+        // ошибки сервера
+        const msg = body.reason || body.message || body.detail || `Ошибка ${res.status}`;
+        showERR(msg);
+        setStatus('QR не подтверждён', false);
+
+      } catch (e) {
+        showERR('Ошибка сети');
+        setStatus('Ошибка запроса: ' + e.message, false);
+      }
     }
-
-    // ошибки сервера
-    const msg = body.reason || body.message || body.detail || `Ошибка ${res.status}`;
-    showERR(msg);
-    setStatus('QR не подтверждён', false);
-
-  } catch (e) {
-    showERR('Ошибка сети');
-    setStatus('Ошибка запроса: ' + e.message, false);
-  }
-}
-
 
     async function startScan(){
       if (scanning) return;
@@ -411,7 +425,7 @@
     closeBtn.onclick = ()=> closeSheet();
     sheetBackdrop.onclick = ()=> closeSheet();
 
-    // Блокируем double‑tap zoom и жест масштабирования (iOS Safari)
+    // Блокируем double-tap zoom и жест масштабирования (iOS Safari)
     document.addEventListener('dblclick', e => e.preventDefault(), { passive:false });
     let lastTouchEnd = 0;
     document.addEventListener('touchend', e => {
