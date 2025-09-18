@@ -192,20 +192,30 @@
     function openSheet(){ sheet.classList.add('open'); sheetBackdrop.classList.add('open'); }
     function closeSheet(){ sheet.classList.remove('open'); sheetBackdrop.classList.remove('open'); }
 
-    // ВЫВОД УСПЕХА (добавили "Стол" опционально)
+    // ВЫВОД УСПЕХА (добавили "Стол", "Ряд", "Место" опционально)
     function showOK(data){
       sheetBadge.className = 'badge ok';
       sheetBadge.textContent = 'ПОДТВЕРЖДЕНО!';
 
-      // безопасный геттер «Стол»
+      // безопасные геттеры
       const tableVal = (data.table ?? data.table_number ?? data.table_id);
+      const rowVal   = (data.row ?? data.row_number);
+      const chairVal = (data.chair ?? data.chair_number ?? data.seat ?? data.seat_number);
+
+      const line = (label, value) => {
+        if (value === undefined || value === null) return '';
+        const s = String(value).trim();
+        if (!s) return '';
+        return `<div><b>${label}:</b> ${s}</div>`;
+      };
 
       sheetBody.innerHTML = [
         data.full_name ? `<div><b>Резидент:</b> ${data.full_name}</div>` : '',
         data.phone     ? `<div><b>Номер:</b> ${data.phone}</div>` : '',
         data.event     ? `<div><b>Ивент:</b> ${data.event}</div>` : '',
-        (tableVal !== undefined && tableVal !== null && String(tableVal).trim() !== '')
-          ? `<div><b>Стол:</b> ${tableVal}</div>` : '',
+        line('Стол', tableVal),
+        line('Ряд', rowVal),
+        line('Место', chairVal),
         data.amount    ? `<div><b>Сумма оплаты:</b> ${data.amount}</div>` : '',
         (data.booking_id ?? data.booking_id===0) ? `<div><b>ID брони:</b> ${data.booking_id}</div>` : ''
       ].join('');
@@ -250,7 +260,7 @@
       torchBtn.textContent = torchOn ? 'Фонарик выкл' : 'Фонарик';
     }
 
-    // Разбор QR → отправка на API (с поддержкой опц. table + нормализация hash)
+    // Разбор QR → отправка на API (с поддержкой опц. table/row/chair + нормализация hash)
     async function handleDecoded(text) {
       if (!text) return;
       stopScan(); // чтобы не дублировать прочтение
@@ -300,13 +310,15 @@
         return;
       }
 
-      // 2) формируем payload (включая опц. table)
+      // 2) формируем payload (включая опц. table/row/chair)
       const payload = {
         telegram_id: Number(qr.telegram_id),
         event_id: Number(qr.event_id),
         transaction_id: Number(qr.transaction_id),
         purchase_id: Number(qr.purchase_id),
         ...(qr.table !== undefined ? { table: Number(qr.table) } : {}),
+        ...(qr.row   !== undefined ? { row: Number(qr.row) } : {}),
+        ...(qr.chair !== undefined ? { chair: Number(qr.chair) } : {}),
       };
 
       // базовая валидация чисел
@@ -344,7 +356,7 @@
 
         if (res.status === 200) {
           // ожидаем структуру:
-          // { message: "...", data: { name, phone, event, amount, transaction_id, table? }, successful: true }
+          // { message: "...", data: { name, phone, event, amount, transaction_id, table?, row?, chair? }, successful: true }
           const d = body?.data || body;
 
           const formatSum = (val) => {
@@ -356,10 +368,10 @@
             return '';
           };
 
-          // берём table из ответа; если нет — подставляем из QR/payload
-          const tableSafe = (
-            d.table ?? d.table_number ?? d.table_id ?? payload.table
-          );
+          // безоп. маппинги мест/рядов/столов из ответа с фолбэком на QR
+          const tableSafe = (d.table ?? d.table_number ?? d.table_id ?? payload.table);
+          const rowSafe   = (d.row ?? d.row_number ?? payload.row);
+          const chairSafe = (d.chair ?? d.chair_number ?? d.seat ?? d.seat_number ?? payload.chair);
 
           showOK({
             full_name: d.name || '',
@@ -367,7 +379,9 @@
             event: d.event || '',
             amount: formatSum(d.amount),
             booking_id: d.transaction_id ?? payload.transaction_id,
-            table: tableSafe
+            table: tableSafe,
+            row: rowSafe,
+            chair: chairSafe
           });
           setStatus('QR подтверждён', true);
           return;
